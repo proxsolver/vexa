@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from meeting_api.models import CalendarEvent
-from admin_models.models import User
+from admin_models.models import User, APIToken
 from app.google_calendar import (
     refresh_access_token,
     list_events,
@@ -21,6 +21,18 @@ from app.google_calendar import (
 )
 
 logger = logging.getLogger("calendar-service.sync")
+
+
+async def _get_user_api_token(user_id: int, db: AsyncSession) -> Optional[str]:
+    """Get a user's API token for authenticating bot creation."""
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(APIToken).where(APIToken.user_id == user_id).limit(1)
+    )
+    token = result.scalar_one_or_none()
+    if token:
+        return token.token
+    return None
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
@@ -149,6 +161,7 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
     )
     events = result.scalars().all()
     scheduled = 0
+    logger.info(f"Schedule check: found {len(events)} pending events in lead window")
 
     for event in events:
         # Get user's API key for meeting-api auth
@@ -157,16 +170,40 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
         if not user:
             continue
 
+        # Read user preferences for auto-join and leave time
+        user_prefs = (user.data or {}).get("google_calendar", {}).get("preferences", {})
+        leave_after_minutes = user_prefs.get("leave_after_minutes")
+        auto_join = user_prefs.get("auto_join", True)
+        default_bot_name = user_prefs.get("default_bot_name", "Vexa Assistant")
+
+        if not auto_join:
+            continue
+
+        # Get user's API token for proper ownership of the meeting
+        user_token = await _get_user_api_token(user.id, db)
+        api_key = user_token or BOT_API_TOKEN
+
+        # Bot name priority: event-specific > user default > hardcoded default
+        bot_name = event.bot_name or default_bot_name
+
+        bot_payload = {
+            "platform": event.platform,
+            "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
+            "bot_name": bot_name,
+        }
+
+        # If user set a leave time, pass it as max_bot_time (ms)
+        if leave_after_minutes and leave_after_minutes > 0:
+            bot_payload["automatic_leave"] = {
+                "max_bot_time": leave_after_minutes * 60 * 1000,
+            }
+
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"{MEETING_API_URL}/bots",
-                    json={
-                        "platform": event.platform,
-                        "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
-                        "bot_name": f"Vexa - {event.title or 'Calendar'}",
-                    },
-                    headers={"X-API-Key": BOT_API_TOKEN},
+                    json=bot_payload,
+                    headers={"X-API-Key": api_key},
                     timeout=30,
                 )
 

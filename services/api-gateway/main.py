@@ -678,6 +678,16 @@ async def calendar_preferences_proxy(request: Request):
     url = f"{CALENDAR_SERVICE_URL}/calendar/preferences"
     return await forward_request(app.state.http_client, "PUT", url, request)
 
+@app.put("/calendar/events/{event_id}/bot-name",
+         tags=["Calendar"],
+         summary="Set custom bot name for a calendar event",
+         dependencies=[Depends(api_key_scheme)])
+async def calendar_event_bot_name_proxy(event_id: int, request: Request):
+    if not CALENDAR_SERVICE_URL:
+        raise HTTPException(status_code=501, detail="Calendar service not configured")
+    url = f"{CALENDAR_SERVICE_URL}/calendar/events/{event_id}/bot-name"
+    return await forward_request(app.state.http_client, "PUT", url, request)
+
 # --- END Calendar Routes ---
 
 # --- Recording Routes (proxy to Bot Manager) ---

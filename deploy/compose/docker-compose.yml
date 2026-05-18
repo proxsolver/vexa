@@ -244,6 +244,9 @@ services:
     mem_limit: 1g
     expose:
       - "8080"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -362,6 +365,9 @@ services:
       - VEXA_ADMIN_API_URL=http://admin-api:8001
       - JWT_SECRET=${JWT_SECRET:-vexa-dev-jwt-secret}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-}
     init: true
     depends_on:
       - api-gateway
@@ -387,34 +393,38 @@ services:
       - vexa
     restart: unless-stopped
 
-  # calendar-service: NO-SHIP for 0.10 — not included in release
-  # calendar-service:
-  #   build:
-  #     context: ../..
-  #     dockerfile: services/calendar-service/Dockerfile
-  #   image: vexaai/calendar-service:${IMAGE_TAG}
-  #   ports:
-  #     - "${CALENDAR_SERVICE_PORT:-8050}:8050"
-  #   environment:
-  #     - DB_HOST=postgres
-  #     - DB_PORT=5432
-  #     - DB_NAME=${DB_NAME:-vexa}
-  #     - DB_USER=${DB_USER:-postgres}
-  #     - DB_PASSWORD=${DB_PASSWORD:-postgres}
-  #     - DB_SSL_MODE=disable
-  #     - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-  #     - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-  #     - MEETING_API_URL=http://meeting-api:8080
-  #     - BOT_API_TOKEN=${BOT_API_TOKEN:-}
-  #     - SYNC_INTERVAL_SECONDS=${CALENDAR_SYNC_INTERVAL:-300}
-  #     - DEFAULT_LEAD_TIME_MINUTES=${CALENDAR_LEAD_TIME:-2}
-  #     - LOG_LEVEL=${LOG_LEVEL:-INFO}
-  #   depends_on:
-  #     - postgres
-  #     - meeting-api
-  #   networks:
-  #     - vexa
-  #   restart: unless-stopped
+  calendar-service:
+    build:
+      context: ../..
+      dockerfile: services/calendar-service/Dockerfile
+    image: vexaai/calendar-service:${IMAGE_TAG}
+    expose:
+      - "8050"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-vexa}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_SSL_MODE=disable
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - MEETING_API_URL=http://meeting-api:8080
+      - BOT_API_TOKEN=${BOT_API_TOKEN:-${VEXA_API_KEY:-}}
+      - SYNC_INTERVAL_SECONDS=${CALENDAR_SYNC_INTERVAL:-300}
+      - DEFAULT_LEAD_TIME_MINUTES=${CALENDAR_LEAD_TIME:-2}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meeting-api:
+        condition: service_started
+    networks:
+      - vexa
+    restart: unless-stopped
 
 volumes:
   redis-data:

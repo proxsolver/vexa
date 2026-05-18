@@ -429,6 +429,84 @@ export const vexaAPI = {
       return { success: false, error: (error as Error).message };
     }
   },
+
+  // Calendar
+  calendar: {
+    async getStatus(userId: number): Promise<{ connected: boolean; event_count: number }> {
+      const response = await fetch(withBasePath(`/api/calendar/status?userId=${userId}`));
+      return handleResponse<{ connected: boolean; event_count: number }>(response);
+    },
+
+    async getEvents(userId: number): Promise<Array<{
+      id: number;
+      title: string;
+      start_time: string | null;
+      end_time: string | null;
+      meeting_url: string | null;
+      platform: string | null;
+      status: string;
+    }>> {
+      const response = await fetch(withBasePath(`/api/calendar/events?userId=${userId}`));
+      return handleResponse<Array<{
+        id: number;
+        title: string;
+        start_time: string | null;
+        end_time: string | null;
+        meeting_url: string | null;
+        platform: string | null;
+        status: string;
+        bot_name: string | null;
+      }>>(response);
+    },
+
+    async connect(userId: number): Promise<{ status: string; events_synced: number }> {
+      const response = await fetch(withBasePath(`/api/calendar/connect?userId=${userId}`), {
+        method: "POST",
+      });
+      return handleResponse<{ status: string; events_synced: number }>(response);
+    },
+
+    async disconnect(userId: number): Promise<{ status: string }> {
+      const response = await fetch(withBasePath(`/api/calendar/disconnect?userId=${userId}`), {
+        method: "DELETE",
+      });
+      return handleResponse<{ status: string }>(response);
+    },
+
+    async updatePreferences(
+      userId: number,
+      prefs: { auto_join?: boolean; lead_time_minutes?: number; leave_after_minutes?: number; default_bot_name?: string }
+    ): Promise<{ status: string; preferences: Record<string, unknown> }> {
+      const params = new URLSearchParams();
+      params.set("userId", String(userId));
+      if (prefs.auto_join !== undefined) params.set("auto_join", String(prefs.auto_join));
+      if (prefs.lead_time_minutes !== undefined) params.set("lead_time_minutes", String(prefs.lead_time_minutes));
+      if (prefs.leave_after_minutes !== undefined) params.set("leave_after_minutes", String(prefs.leave_after_minutes));
+      if (prefs.default_bot_name !== undefined) params.set("default_bot_name", prefs.default_bot_name);
+      const response = await fetch(withBasePath(`/api/calendar/preferences?${params}`), {
+        method: "PUT",
+      });
+      return handleResponse<{ status: string; preferences: { auto_join: boolean; lead_time_minutes: number } }>(response);
+    },
+
+    async startOAuth(userEmail: string, returnTo?: string): Promise<{ authUrl: string }> {
+      const response = await fetch(withBasePath("/api/calendar/oauth/start"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userEmail, returnTo: returnTo || "/calendar" }),
+      });
+      return handleResponse<{ authUrl: string }>(response);
+    },
+
+    async updateEventBotName(eventId: number, botName: string): Promise<{ status: string; bot_name: string | null }> {
+      const params = new URLSearchParams();
+      params.set("bot_name", botName);
+      const response = await fetch(withBasePath(`/api/calendar/events/${eventId}/bot-name?${params}`), {
+        method: "PUT",
+      });
+      return handleResponse<{ status: string; bot_name: string | null }>(response);
+    },
+  },
 };
 
 export { VexaAPIError };

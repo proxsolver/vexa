@@ -42,6 +42,11 @@ function resolveRedirectUri(req: NextRequest): string {
   if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
     return process.env.GOOGLE_CALENDAR_REDIRECT_URI;
   }
+  // Prefer NEXTAUTH_URL (public origin) over container-internal origin
+  const publicOrigin = process.env.NEXTAUTH_URL;
+  if (publicOrigin) {
+    return `${publicOrigin}/auth/google-calendar/callback`;
+  }
   return `${req.nextUrl.origin}/auth/google-calendar/callback`;
 }
 

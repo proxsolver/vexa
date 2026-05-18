@@ -134,9 +134,27 @@ async def list_events(user_id: int = Query(...), db: AsyncSession = Depends(get_
             "meeting_url": e.meeting_url,
             "platform": e.platform,
             "status": e.status,
+            "bot_name": e.bot_name,
         }
         for e in events
     ]
+
+
+@app.put("/calendar/events/{event_id}/bot-name")
+async def update_event_bot_name(
+    event_id: int,
+    bot_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set a custom bot name for a specific calendar event."""
+    result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    event.bot_name = bot_name if bot_name.strip() else None
+    await db.commit()
+    return {"status": "updated", "bot_name": event.bot_name}
 
 
 @app.put("/calendar/preferences")
@@ -144,9 +162,11 @@ async def update_preferences(
     user_id: int = Query(...),
     auto_join: bool = True,
     lead_time_minutes: int = 2,
+    leave_after_minutes: int = 0,
+    default_bot_name: str = "Vexa Assistant",
     db: AsyncSession = Depends(get_db),
 ):
-    """Set auto-join and lead time preferences."""
+    """Set auto-join, lead time, leave-after, and default bot name preferences."""
     from sqlalchemy import update
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -158,6 +178,8 @@ async def update_preferences(
     gc["preferences"] = {
         "auto_join": auto_join,
         "lead_time_minutes": lead_time_minutes,
+        "leave_after_minutes": leave_after_minutes,
+        "default_bot_name": default_bot_name,
     }
     user_data["google_calendar"] = gc
     await db.execute(

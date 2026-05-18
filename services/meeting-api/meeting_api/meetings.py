@@ -1982,15 +1982,15 @@ async def transcribe_meeting(
         logger.error(f"Failed to download recording for meeting {meeting_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to download recording: {e}")
 
-    # 3. Convert to WAV if needed (Whisper requires PCM-decodable formats)
-    if media_format in ("webm", "opus", "ogg", "mp4", "m4a"):
+    # 3. Convert to MP3 if needed (smaller file for API upload)
+    if media_format in ("webm", "opus", "ogg", "mp4", "m4a", "wav"):
         try:
             with tempfile.NamedTemporaryFile(suffix=f".{media_format}", delete=False) as src:
                 src.write(audio_data)
                 src_path = src.name
-            dst_path = src_path.rsplit(".", 1)[0] + ".wav"
+            dst_path = src_path.rsplit(".", 1)[0] + ".mp3"
             result = subprocess.run(
-                ["ffmpeg", "-i", src_path, "-ar", "16000", "-ac", "1", "-f", "wav", dst_path, "-y"],
+                ["ffmpeg", "-i", src_path, "-ar", "16000", "-ac", "1", "-b:a", "32k", "-f", "mp3", dst_path, "-y"],
                 capture_output=True, timeout=120,
             )
             if result.returncode != 0:
@@ -1998,7 +1998,7 @@ async def transcribe_meeting(
                 raise HTTPException(status_code=500, detail="Audio conversion failed")
             with open(dst_path, "rb") as f:
                 audio_data = f.read()
-            media_format = "wav"
+            media_format = "mp3"
             os.unlink(src_path)
             os.unlink(dst_path)
         except subprocess.TimeoutExpired:
@@ -2016,9 +2016,11 @@ async def transcribe_meeting(
         raise HTTPException(status_code=503, detail="TRANSCRIPTION_SERVICE_URL not configured")
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             files = {"file": (f"recording.{media_format}", audio_data, f"audio/{media_format}")}
-            form_data = {"model": "large-v3-turbo"}
+            form_data = {"model": os.environ.get("TRANSCRIPTION_MODEL", "whisper-large-v3"),
+                          "response_format": "verbose_json",
+                          "timestamp_granularities[]": "segment"}
             if req.language:
                 form_data["language"] = req.language
             headers = {}
@@ -2037,8 +2039,10 @@ async def transcribe_meeting(
         logger.error(f"Transcription service error: {e.response.status_code} {e.response.text}")
         raise HTTPException(status_code=502, detail=f"Transcription service error: {e.response.status_code}")
     except Exception as e:
-        logger.error(f"Transcription service request failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Transcription service unavailable: {e}")
+        import traceback
+        logger.error(f"Transcription service request failed: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=502, detail=f"Transcription service unavailable: {type(e).__name__}: {e}")
 
     # 5. Parse and filter segments
     segments = tx_result.get("segments", [])

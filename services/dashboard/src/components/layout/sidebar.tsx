@@ -19,6 +19,7 @@ import {
   Zap,
   CreditCard,
   Webhook,
+  Calendar,
   User,
   Bug,
 } from "lucide-react";
@@ -223,6 +224,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
               {/* Below the line: integrations & settings */}
               <div className="mt-4 pt-4 border-t space-y-1">
+                {/* Calendar */}
+                <Link
+                  href="/calendar"
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    pathname.startsWith("/calendar")
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <Calendar className="h-5 w-5" />
+                  Calendar
+                </Link>
                 {/* Webhooks */}
                 <Link
                   href="/webhooks"

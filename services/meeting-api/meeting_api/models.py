@@ -154,6 +154,7 @@ class CalendarEvent(Base):
     meeting_url = Column(Text, nullable=True)
     platform = Column(Text, nullable=True)
     status = Column(Text, nullable=False, server_default='pending', default='pending')
+    bot_name = Column(Text, nullable=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=True)
     sync_token = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
