@@ -154,7 +154,7 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
         select(CalendarEvent).where(
             CalendarEvent.status == "pending",
             CalendarEvent.start_time <= cutoff,
-            CalendarEvent.start_time >= now - timedelta(minutes=5),
+            CalendarEvent.start_time >= now - timedelta(minutes=10),
             CalendarEvent.meeting_url.isnot(None),
             CalendarEvent.platform.isnot(None),
         )
@@ -174,7 +174,8 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
         user_prefs = (user.data or {}).get("google_calendar", {}).get("preferences", {})
         leave_after_minutes = user_prefs.get("leave_after_minutes")
         auto_join = user_prefs.get("auto_join", True)
-        default_bot_name = user_prefs.get("default_bot_name", "Vexa Assistant")
+        default_bot_name = user_prefs.get("default_bot_name", ".")
+        video_enabled = user_prefs.get("video_enabled", False)
 
         if not auto_join:
             continue
@@ -191,6 +192,9 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
             "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
             "bot_name": bot_name,
         }
+
+        if video_enabled:
+            bot_payload["video"] = True
 
         # If user set a leave time, pass it as max_bot_time (ms)
         if leave_after_minutes and leave_after_minutes > 0:

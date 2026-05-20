@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Video, Loader2, Check, AlertCircle, Sparkles, Mic, UserCheck } from "lucide-react";
+import { Video, Loader2, Check, AlertCircle, Sparkles, Mic, UserCheck, VideoOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,12 +37,13 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
   const [passcode, setPasscode] = useState("");
   const [botName, setBotName] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("vexa-join-bot-name") || "Vexa";
+      return localStorage.getItem("vexa-join-bot-name") || ".";
     }
-    return "Vexa";
+    return ".";
   });
   const [language, setLanguage] = useState("auto");
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -104,7 +105,7 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
     }
 
     // Set bot name - use custom name or configured default
-    request.bot_name = botName.trim() || config?.defaultBotName || "Vexa";
+    request.bot_name = botName.trim() || config?.defaultBotName || ".";
 
     // Persist to localStorage
     if (typeof window !== "undefined") {
@@ -117,6 +118,10 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
 
     if (!transcribeEnabled) {
       request.transcribe_enabled = false;
+    }
+
+    if (videoEnabled) {
+      request.video = true;
     }
 
     if (authenticated) {
@@ -429,6 +434,26 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
                 Bot will record audio only. You can transcribe later from the meeting page.
               </p>
             )}
+          </div>
+
+          {/* Video Recording Toggle */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="videoEnabled" className="flex items-center gap-2 cursor-pointer">
+                {videoEnabled ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
+                Video Recording
+              </Label>
+              <Switch
+                id="videoEnabled"
+                checked={videoEnabled}
+                onCheckedChange={setVideoEnabled}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {videoEnabled
+                ? "Screen capture of the meeting view will be saved as video."
+                : "Audio recording is always enabled. Turn on to also capture video."}
+            </p>
           </div>
 
           {/* Authenticated Toggle — coming soon */}

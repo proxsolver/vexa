@@ -87,7 +87,7 @@ export default function CalendarPage() {
     auto_join: true,
     lead_time_minutes: 2,
     leave_after_minutes: 0,
-    default_bot_name: "Vexa Assistant",
+    default_bot_name: ".",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -339,7 +339,7 @@ export default function CalendarPage() {
                 <Input
                   value={prefs.default_bot_name}
                   onChange={(e) => setPrefs((p) => ({ ...p, default_bot_name: e.target.value }))}
-                  placeholder="Vexa Assistant"
+                  placeholder="."
                   className="max-w-xs"
                 />
               </div>

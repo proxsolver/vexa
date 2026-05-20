@@ -386,7 +386,7 @@ async def internal_upload_recording(
             logger.warning(
                 "[E1A] late_chunk_after_finalize meeting_id=%s recording_id=%s media_type=%s "
                 "chunk_seq=%s — preserving master storage_path=%s",
-                meeting_id, recording_id, media_type, chunk_seq, prior_sp,
+                meeting.id, rec_payload.get("id"), media_type, chunk_seq, prior_sp,
             )
         existing_media_files.append({
             "id": (prior_same_type or {}).get("id") or _new_recording_numeric_id(),
@@ -635,6 +635,12 @@ async def download_media_file(
         # on filesystem). Fall back to the legacy /raw proxy path. This is
         # an explicit per-deployment decision (Pack P), not a runtime
         # fallback — local storage is dev-only.
+        url = f"/recordings/{recording_id}/media/{media_file_id}/raw"
+    elif hasattr(storage, "has_public_endpoint") and not storage.has_public_endpoint:
+        # No public MinIO endpoint configured (e.g. Cloudflare tunnel setup).
+        # Presigned URLs would point to internal hostname unreachable from
+        # browsers. Fall back to /raw proxy so streaming goes through the
+        # api-gateway which is externally accessible.
         url = f"/recordings/{recording_id}/media/{media_file_id}/raw"
     else:
         url = storage.get_presigned_url(storage_path, expires=3600)

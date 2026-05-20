@@ -98,12 +98,13 @@ class MinIOStorageClient(StorageClient):
         # Pre-fix: presigned URLs always carried the internal hostname; on
         # helm with ClusterIP-only MinIO, browsers got DNS-unresolvable URLs
         # and audio playback hung at "Preparing audio...".
-        public_endpoint_raw = (os.environ.get("MINIO_PUBLIC_ENDPOINT") or "").strip() or self.endpoint
+        public_endpoint_raw = (os.environ.get("MINIO_PUBLIC_ENDPOINT") or "").strip()
         if public_endpoint_raw:
             public_endpoint_url = public_endpoint_raw if "://" in public_endpoint_raw else f"{protocol}://{public_endpoint_raw}"
         else:
             public_endpoint_url = endpoint_url
         self.public_endpoint_url = public_endpoint_url
+        self.has_public_endpoint = bool(public_endpoint_raw) and public_endpoint_url != endpoint_url
 
         self.client = boto3.client(
             "s3",

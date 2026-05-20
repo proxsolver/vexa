@@ -70,8 +70,12 @@ async def health():
 @app.post("/calendar/connect")
 async def connect_calendar(user_id: int = Query(...), db: AsyncSession = Depends(get_db)):
     """Trigger initial sync after OAuth connection."""
-    count = await sync_user_calendar(user_id, db)
-    return {"status": "connected", "events_synced": count}
+    try:
+        count = await sync_user_calendar(user_id, db)
+        return {"status": "connected", "events_synced": count}
+    except Exception as e:
+        logger.error(f"Calendar sync failed for user {user_id}: {e}")
+        raise HTTPException(status_code=400, detail=f"Calendar sync failed: {str(e)}")
 
 
 @app.get("/calendar/status")
@@ -119,9 +123,11 @@ async def disconnect_calendar(user_id: int = Query(...), db: AsyncSession = Depe
 @app.get("/calendar/events")
 async def list_events(user_id: int = Query(...), db: AsyncSession = Depends(get_db)):
     """List upcoming calendar events for a user."""
+    from datetime import datetime, timezone
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(CalendarEvent)
-        .where(CalendarEvent.user_id == user_id)
+        .where(CalendarEvent.user_id == user_id, CalendarEvent.start_time >= today_start)
         .order_by(CalendarEvent.start_time)
     )
     events = result.scalars().all()
@@ -163,10 +169,11 @@ async def update_preferences(
     auto_join: bool = True,
     lead_time_minutes: int = 2,
     leave_after_minutes: int = 0,
-    default_bot_name: str = "Vexa Assistant",
+    default_bot_name: str = ".",
+    video_enabled: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    """Set auto-join, lead time, leave-after, and default bot name preferences."""
+    """Set auto-join, lead time, leave-after, video, and default bot name preferences."""
     from sqlalchemy import update
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -180,6 +187,7 @@ async def update_preferences(
         "lead_time_minutes": lead_time_minutes,
         "leave_after_minutes": leave_after_minutes,
         "default_bot_name": default_bot_name,
+        "video_enabled": video_enabled,
     }
     user_data["google_calendar"] = gc
     await db.execute(
