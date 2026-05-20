@@ -27,7 +27,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import attributes
 
 from .database import get_db, async_session_local
-from .models import Meeting, MeetingSession
+from .models import Meeting, MeetingSession, CalendarEvent
 from .schemas import (
     MeetingCreate,
     MeetingResponse,
@@ -1454,6 +1454,17 @@ async def list_user_bots(
     meetings = (await db.execute(stmt)).scalars().all()
     has_more = len(meetings) > limit
     meetings = meetings[:limit]
+
+    # Fetch calendar event titles for these meetings
+    meeting_ids = [m.id for m in meetings]
+    cal_titles = {}
+    if meeting_ids:
+        cal_result = await db.execute(
+            select(CalendarEvent.meeting_id, CalendarEvent.title).where(
+                CalendarEvent.meeting_id.in_(meeting_ids)
+            )
+        )
+        cal_titles = dict(cal_result.all())
     # v0.10.5 Pack L — slim list endpoint (#263 + #264).
     #
     # OLD shape returned `m.data or {}` — full JSONB blob with
@@ -1476,6 +1487,14 @@ async def list_user_bots(
         participants = d.get("participants") or []
         notes = d.get("notes")
         transitions = d.get("status_transition") or []
+        recordings = d.get("recordings") or []
+        total_size = 0
+        for r in recordings:
+            if isinstance(r, dict):
+                total_size += r.get("file_size_bytes", 0)
+                for mf in r.get("media_files", []):
+                    if isinstance(mf, dict):
+                        total_size += mf.get("file_size_bytes", 0)
         return {
             "name": d.get("name") or d.get("title"),
             "completion_reason": d.get("completion_reason"),
@@ -1484,7 +1503,8 @@ async def list_user_bots(
             "notes_preview": (notes[:120] if isinstance(notes, str) else None),
             "languages": d.get("languages"),
             "last_transition": transitions[-1] if transitions else None,
-            "has_recording": bool(d.get("recordings")),
+            "has_recording": bool(recordings),
+            "recording_size_bytes": total_size if total_size else None,
         }
 
     return {
@@ -1493,6 +1513,7 @@ async def list_user_bots(
                 "id": m.id,
                 "platform": m.platform,
                 "native_meeting_id": m.platform_specific_id,
+                "title": cal_titles.get(m.id),
                 "status": m.status,
                 "bot_container_id": m.bot_container_id,
                 "start_time": m.start_time.isoformat() if m.start_time else None,

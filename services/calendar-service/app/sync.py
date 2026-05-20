@@ -39,6 +39,8 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 MEETING_API_URL = os.getenv("MEETING_API_URL", "http://meeting-api:8080")
 BOT_API_TOKEN = os.getenv("BOT_API_TOKEN", "")
 DEFAULT_LEAD_TIME_MINUTES = int(os.getenv("DEFAULT_LEAD_TIME_MINUTES", "2"))
+DEFAULT_MAX_RETRIES = int(os.getenv("DEFAULT_MAX_RETRIES", "3"))
+RETRY_BACKOFF_BASE_SECONDS = int(os.getenv("RETRY_BACKOFF_BASE_SECONDS", "30"))
 
 
 async def sync_user_calendar(user_id: int, db: AsyncSession) -> int:
@@ -145,23 +147,75 @@ async def sync_user_calendar(user_id: int, db: AsyncSession) -> int:
     return upserted
 
 
+async def _retry_failed_events(db: AsyncSession) -> int:
+    """Reset failed events that can still be retried (meeting still ongoing, retries left)."""
+    now = datetime.now(timezone.utc)
+    reset_count = 0
+
+    result = await db.execute(
+        select(CalendarEvent).where(
+            CalendarEvent.status == "failed",
+            CalendarEvent.meeting_url.isnot(None),
+            CalendarEvent.platform.isnot(None),
+        )
+    )
+    failed_events = result.scalars().all()
+
+    for event in failed_events:
+        max_retries = event.max_retries or DEFAULT_MAX_RETRIES
+        if event.retry_count >= max_retries:
+            logger.info(f"Event {event.id} exhausted retries ({event.retry_count}/{max_retries})")
+            continue
+
+        # Only retry if the meeting hasn't ended yet
+        if event.end_time and now > event.end_time:
+            logger.info(f"Event {event.id} already ended, skipping retry")
+            continue
+
+        # Exponential backoff: 30s, 60s, 120s, ...
+        backoff = RETRY_BACKOFF_BASE_SECONDS * (2 ** event.retry_count)
+        if event.last_retry_at:
+            elapsed = (now - event.last_retry_at.replace(tzinfo=timezone.utc)).total_seconds()
+            if elapsed < backoff:
+                continue
+
+        logger.info(
+            f"Retrying event {event.id} (attempt {event.retry_count + 1}/{max_retries}): {event.title}"
+        )
+        event.retry_count = (event.retry_count or 0) + 1
+        event.last_retry_at = now
+        event.status = "pending"
+        event.meeting_id = None
+        reset_count += 1
+
+    if reset_count:
+        await db.commit()
+    return reset_count
+
+
 async def schedule_upcoming_bots(db: AsyncSession) -> int:
     """Check for pending events within lead time and schedule bots. Returns count scheduled."""
     now = datetime.now(timezone.utc)
     cutoff = now + timedelta(minutes=DEFAULT_LEAD_TIME_MINUTES)
 
+    from sqlalchemy import or_
+
+    # All pending events whose meeting hasn't ended yet
     result = await db.execute(
         select(CalendarEvent).where(
             CalendarEvent.status == "pending",
             CalendarEvent.start_time <= cutoff,
-            CalendarEvent.start_time >= now - timedelta(minutes=10),
             CalendarEvent.meeting_url.isnot(None),
             CalendarEvent.platform.isnot(None),
+            or_(
+                CalendarEvent.end_time > now,
+                CalendarEvent.end_time.is_(None),
+            ),
         )
     )
-    events = result.scalars().all()
+    events = list(result.scalars().all())
     scheduled = 0
-    logger.info(f"Schedule check: found {len(events)} pending events in lead window")
+    logger.info(f"Schedule check: found {len(events)} pending events")
 
     for event in events:
         # Get user's API key for meeting-api auth
@@ -175,7 +229,7 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
         leave_after_minutes = user_prefs.get("leave_after_minutes")
         auto_join = user_prefs.get("auto_join", True)
         default_bot_name = user_prefs.get("default_bot_name", ".")
-        video_enabled = user_prefs.get("video_enabled", False)
+        video_enabled = user_prefs.get("video_enabled", True)
 
         if not auto_join:
             continue
@@ -190,11 +244,11 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
         bot_payload = {
             "platform": event.platform,
             "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
+            "meeting_url": event.meeting_url,
             "bot_name": bot_name,
+            "video": video_enabled,
+            "name": event.title,
         }
-
-        if video_enabled:
-            bot_payload["video"] = True
 
         # If user set a leave time, pass it as max_bot_time (ms)
         if leave_after_minutes and leave_after_minutes > 0:

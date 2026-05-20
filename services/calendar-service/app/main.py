@@ -12,7 +12,7 @@ from sqlalchemy import select
 from meeting_api.database import get_db, init_db
 from meeting_api.models import CalendarEvent
 from admin_models.models import User
-from app.sync import sync_user_calendar, schedule_upcoming_bots
+from app.sync import sync_user_calendar, schedule_upcoming_bots, _retry_failed_events
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
@@ -56,6 +56,12 @@ async def sync_loop():
 
                 # Schedule bots for upcoming events
                 await schedule_upcoming_bots(db)
+
+                # Retry failed events that are still within meeting window
+                retried = await _retry_failed_events(db)
+                if retried:
+                    logger.info(f"Reset {retried} failed events for retry")
+                    await schedule_upcoming_bots(db)
         except Exception as e:
             logger.error(f"Sync loop error: {e}")
 
@@ -170,7 +176,7 @@ async def update_preferences(
     lead_time_minutes: int = 2,
     leave_after_minutes: int = 0,
     default_bot_name: str = ".",
-    video_enabled: bool = False,
+    video_enabled: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
     """Set auto-join, lead time, leave-after, video, and default bot name preferences."""

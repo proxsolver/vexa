@@ -158,6 +158,9 @@ class CalendarEvent(Base):
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=True)
     sync_token = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    retry_count = Column(Integer, nullable=False, server_default='0', default=0)
+    max_retries = Column(Integer, nullable=False, server_default='3', default=3)
+    last_retry_at = Column(sqlalchemy.DateTime(timezone=True), nullable=True)
 
     meeting = relationship("Meeting")
 

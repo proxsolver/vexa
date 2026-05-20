@@ -146,6 +146,9 @@ services:
       - PROFILES_PATH=/app/profiles.yaml
       - ALLOW_PRIVATE_CALLBACKS=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TRANSCRIPTION_SERVICE_URL=${TRANSCRIPTION_SERVICE_URL:-}
+      - TRANSCRIPTION_SERVICE_TOKEN=${TRANSCRIPTION_SERVICE_TOKEN:-}
+      - TRANSCRIPTION_GATEWAY_URL=${TRANSCRIPTION_GATEWAY_URL:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../../services/runtime-api/profiles.yaml:/app/profiles.yaml:ro
@@ -412,7 +415,7 @@ services:
       - DB_SSL_MODE=disable
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - MEETING_API_URL=http://meeting-api:8080
+      - MEETING_API_URL=http://api-gateway:8000
       - BOT_API_TOKEN=${BOT_API_TOKEN:-${VEXA_API_KEY:-}}
       - SYNC_INTERVAL_SECONDS=${CALENDAR_SYNC_INTERVAL:-300}
       - DEFAULT_LEAD_TIME_MINUTES=${CALENDAR_LEAD_TIME:-2}

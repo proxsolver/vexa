@@ -19,7 +19,7 @@ from sqlalchemy.orm import attributes
 from sqlalchemy import func
 
 from .database import get_db
-from .models import Meeting, MeetingSession, Transcription
+from .models import Meeting, MeetingSession, Transcription, CalendarEvent
 from .schemas import (
     MeetingStatus,
     MeetingCompletionReason,
@@ -551,6 +551,36 @@ async def bot_exit_callback(
                 }
                 meeting.data = updated_data
 
+            # Mark linked calendar event as failed so retry logic can pick it up
+            if success and target_status == MeetingStatus.FAILED:
+                cal_result = await db.execute(
+                    select(CalendarEvent).where(
+                        CalendarEvent.meeting_id == meeting.id
+                    )
+                )
+                cal_event = cal_result.scalar_one_or_none()
+                if cal_event:
+                    cal_event.status = "failed"
+                    logger.info(
+                        f"Calendar event {cal_event.id} marked failed "
+                        f"(meeting {meeting.id})"
+                    )
+
+            # Mark linked calendar event as completed on success
+            if success and target_status == MeetingStatus.COMPLETED:
+                cal_result = await db.execute(
+                    select(CalendarEvent).where(
+                        CalendarEvent.meeting_id == meeting.id
+                    )
+                )
+                cal_event = cal_result.scalar_one_or_none()
+                if cal_event and cal_event.status != "completed":
+                    cal_event.status = "completed"
+                    logger.info(
+                        f"Calendar event {cal_event.id} marked completed "
+                        f"(meeting {meeting.id})"
+                    )
+
         # Persist chat messages from Redis list → meeting.data.chat_messages JSONB.
         #
         # Runs unconditionally — independent of `success`. Race we're guarding
@@ -663,6 +693,15 @@ async def bot_startup_callback(
             old_status=old_status, new_status=MeetingStatus.ACTIVE.value,
             transition_source="bot_callback",
         )
+
+        # Mark linked calendar event as active
+        cal_result = await db.execute(
+            select(CalendarEvent).where(CalendarEvent.meeting_id == meeting.id)
+        )
+        cal_event = cal_result.scalar_one_or_none()
+        if cal_event and cal_event.status != "active":
+            cal_event.status = "active"
+            logger.info(f"Calendar event {cal_event.id} marked active (meeting {meeting.id})")
 
     return {"status": "startup processed", "meeting_id": meeting.id, "meeting_status": meeting.status}
 
