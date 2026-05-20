@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 import { BotConfig } from '../../../types';
 import { RecordingService } from '../../../services/recording';
-import { getRawCaptureService, getSegmentPublisher } from '../../../index';
+import { getRawCaptureService, getSegmentPublisher, feedZoomAudio } from '../../../index';
 import { log } from '../../../utils';
 import { PulseAudioCapture, UnifiedRecordingPipeline } from '../../../services/audio-pipeline';
 import { zoomParticipantNameSelector } from './selectors';
@@ -43,7 +43,14 @@ export async function startZoomWebRecording(page: Page | null, botConfig: BotCon
       // publisher.resetSessionStart(). Same hook for all 3 platforms;
       // no per-platform handler needed here.)
       recordingService = new RecordingService(botConfig.meeting_id, sessionUid);
-      const source = new PulseAudioCapture();
+      const source = new PulseAudioCapture({
+        onRawAudio: (audioData: Float32Array) => {
+          const speakerName = getLastActiveSpeaker();
+          if (speakerName) {
+            feedZoomAudio(speakerName, audioData).catch(() => {});
+          }
+        },
+      });
 
       pipeline = new UnifiedRecordingPipeline({
         source,

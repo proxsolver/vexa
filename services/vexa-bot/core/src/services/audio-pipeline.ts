@@ -352,6 +352,9 @@ export interface PulseAudioCaptureOptions {
   channels?: number;
   /** Chunk duration in seconds (default: 15 — same target as MediaRecorder timeslice). */
   chunkDurationSec?: number;
+  /** Optional callback receiving raw Float32Array audio for real-time transcription.
+   *  Called on every parecord stdout burst, before WAV chunking. */
+  onRawAudio?: (audioData: Float32Array) => void;
 }
 
 export class PulseAudioCapture extends EventEmitter implements AudioCaptureSource {
@@ -365,6 +368,7 @@ export class PulseAudioCapture extends EventEmitter implements AudioCaptureSourc
   private buffer: Buffer = Buffer.alloc(0);
   private seq = 0;
   private stopped = false;
+  private onRawAudio: ((audioData: Float32Array) => void) | null;
 
   constructor(opts: PulseAudioCaptureOptions = {}) {
     super();
@@ -373,6 +377,7 @@ export class PulseAudioCapture extends EventEmitter implements AudioCaptureSourc
     this.channels = opts.channels ?? 1;
     this.chunkDurationSec = opts.chunkDurationSec ?? 15;
     this.bytesPerChunk = this.sampleRate * this.channels * this.bytesPerSample * this.chunkDurationSec;
+    this.onRawAudio = opts.onRawAudio || null;
   }
 
   async start(): Promise<void> {
@@ -467,6 +472,14 @@ export class PulseAudioCapture extends EventEmitter implements AudioCaptureSourc
 
   private _appendAndSlice(buf: Buffer): void {
     if (this.stopped) return;
+
+    // Feed raw audio to transcription callback before WAV chunking
+    if (this.onRawAudio && buf.length >= 2) {
+      try {
+        this.onRawAudio(PulseAudioCapture.pcmToFloat32(buf));
+      } catch { /* transcription errors must not break recording */ }
+    }
+
     this.buffer = Buffer.concat([this.buffer, buf]);
     while (this.buffer.length >= this.bytesPerChunk) {
       const slice = this.buffer.subarray(0, this.bytesPerChunk);
@@ -480,6 +493,16 @@ export class PulseAudioCapture extends EventEmitter implements AudioCaptureSourc
         isFinal: false,
       });
     }
+  }
+
+  /** Convert s16le PCM buffer to Float32Array for Whisper input. */
+  private static pcmToFloat32(pcm: Buffer): Float32Array {
+    const n = Math.floor(pcm.length / 2);
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      out[i] = pcm.readInt16LE(i * 2) / 32768.0;
+    }
+    return out;
   }
 
   private _wrapWav(pcm: Buffer): Buffer {
