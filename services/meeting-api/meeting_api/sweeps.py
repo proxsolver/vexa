@@ -242,6 +242,88 @@ async def _sweep_aggregation_retry(
     return swept
 
 
+async def _sweep_rotation_handoff(db_session_factory: Callable) -> int:
+    """Check for meetings stuck in rotation handoff (pending_handoff > 10 min).
+
+    If a new bot never reached ACTIVE, the outgoing bot keeps running.
+    This sweep detects the stuck state and either retries the rotation
+    or cancels it and falls back to a normal timeout.
+    """
+    from datetime import datetime, timezone
+
+    ROTATION_HANDOFF_THRESHOLD_SECONDS = 600  # 10 min
+
+    async with db_session_factory() as db:
+        result = await db.execute(
+            select(Meeting).where(
+                Meeting.status == MeetingStatus.ACTIVE.value,
+            )
+        )
+        meetings = result.scalars().all()
+
+    stuck_count = 0
+    for meeting in meetings:
+        data = meeting.data or {}
+        rotation = data.get("rotation", {})
+        if not rotation.get("pending_handoff"):
+            continue
+
+        handoff_started = rotation.get("handoff_started_at")
+        if not handoff_started:
+            continue
+
+        try:
+            started = datetime.fromisoformat(handoff_started)
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        except (ValueError, TypeError):
+            continue
+
+        if elapsed < ROTATION_HANDOFF_THRESHOLD_SECONDS:
+            continue
+
+        stuck_count += 1
+        consecutive_failures = rotation.get("consecutive_failures", 0) + 1
+        logger.warning(
+            f"[sweep] Meeting {meeting.id}: rotation handoff stuck for {elapsed:.0f}s "
+            f"(failures={consecutive_failures})"
+        )
+
+        async with db_session_factory() as db:
+            meeting = await db.get(Meeting, meeting.id)
+            if not meeting:
+                continue
+            meeting_data = dict(meeting.data or {})
+
+            if consecutive_failures >= 3:
+                # Cancel rotation, schedule normal timeout
+                logger.warning(f"[sweep] Meeting {meeting.id}: cancelling rotation after {consecutive_failures} failures")
+                meeting_data["rotation"]["enabled"] = False
+                meeting_data["rotation"]["pending_handoff"] = False
+                meeting.data = meeting_data
+                await db.commit()
+            else:
+                # Increment failure count, clear pending_handoff for retry
+                meeting_data["rotation"]["consecutive_failures"] = consecutive_failures
+                meeting_data["rotation"]["pending_handoff"] = False
+                meeting_data["rotation"]["outgoing_container_id"] = None
+                meeting_data["rotation"]["outgoing_session_uid"] = None
+                meeting.data = meeting_data
+                await db.commit()
+
+                # Schedule a retry rotation
+                from .meetings import _schedule_bot_rotation, ROTATION_RETRY_BACKOFF_MS
+                await _schedule_bot_rotation(
+                    meeting_id=meeting.id,
+                    user_id=meeting.user_id,
+                    interval_ms=ROTATION_RETRY_BACKOFF_MS,
+                    rotation_count=meeting_data["rotation"].get("rotation_count", 0),
+                )
+
+    return stuck_count
+
+
 async def _sweep_container_stops() -> dict:
     """v0.10.5 Pack D.2 (#266) — durable container-stop outbox consumer.
 
@@ -336,6 +418,16 @@ async def start_sweeps(
                 f"[sweeps] iteration {sweep_iterations} container-stops error: {e}",
                 exc_info=True,
             )
+
+        try:
+            rot_stuck = await _sweep_rotation_handoff(db_session_factory)
+            if rot_stuck > 0:
+                logger.warning(
+                    f"[sweeps] iteration {sweep_iterations}: "
+                    f"{rot_stuck} meetings with stuck rotation handoff (>10 min pending)"
+                )
+        except Exception as e:
+            logger.error(f"[sweeps] iteration {sweep_iterations} rotation-handoff error: {e}", exc_info=True)
 
         # Wait for POLL_INTERVAL or until stopped.
         try:

@@ -1665,7 +1665,7 @@ async function handlePerSpeakerAudioData(speakerIndex: number, audioDataArray: n
                 const lower = n.toLowerCase();
                 return !(lower.includes(selfLower) || selfLower.includes(lower));
               });
-            }, currentBotConfig?.botName || 'Vexa Bot');
+            }, currentBotConfig?.botName || '.');
 
             if (state && speakerIndex < state.length) {
               const fallbackName = state[speakerIndex];

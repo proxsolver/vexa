@@ -397,6 +397,53 @@ async def _cancel_bot_timeout(job_id: str, meeting_id: int) -> None:
         logger.error(f"Failed to cancel bot timeout for meeting {meeting_id}: {e}")
 
 
+async def _schedule_bot_rotation(
+    meeting_id: int,
+    user_id: int,
+    interval_ms: int,
+    rotation_count: int = 0,
+) -> Optional[str]:
+    """Schedule a rotation job to spawn a new bot after interval_ms.
+
+    Instead of killing the bot (timeout), this triggers a POST to the
+    rotation endpoint which spawns a new bot for the same meeting.
+    Returns the scheduler job_id on success, None on failure.
+    """
+    try:
+        client = _get_httpx_client()
+        execute_at = time.time() + (interval_ms / 1000.0)
+        resp = await client.post(
+            f"{RUNTIME_API_URL}/scheduler/jobs",
+            json={
+                "execute_at": execute_at,
+                "request": {
+                    "method": "POST",
+                    "url": f"{MEETING_API_URL}/bots/internal/rotation/{meeting_id}",
+                    "timeout": 30,
+                },
+                "metadata": {
+                    "type": "bot_rotation",
+                    "meeting_id": meeting_id,
+                    "user_id": user_id,
+                    "rotation_count": rotation_count,
+                },
+                "idempotency_key": f"bot_rotation_{meeting_id}_{rotation_count}",
+            },
+            timeout=10.0,
+        )
+        if resp.status_code == 201:
+            job = resp.json()
+            job_id = job.get("job_id")
+            logger.info(f"[rotation] Scheduled rotation job {job_id} for meeting {meeting_id} (interval={interval_ms}ms, count={rotation_count})")
+            return job_id
+        else:
+            logger.error(f"[rotation] Failed to schedule rotation: HTTP {resp.status_code}: {resp.text}")
+            return None
+    except Exception as e:
+        logger.error(f"[rotation] Failed to schedule rotation for meeting {meeting_id}: {e}")
+        return None
+
+
 async def _spawn_via_runtime_api(
     profile: str,
     config: Dict[str, Any],
@@ -1069,7 +1116,7 @@ async def request_bot(
         "meeting_id": meeting_id,
         "platform": req.platform.value,
         "meetingUrl": constructed_url,
-        "botName": req.bot_name or f"VexaBot-{uuid_lib.uuid4().hex[:6]}",
+        "botName": req.bot_name or ".",
         "token": meeting_token,
         "nativeMeetingId": native_meeting_id,
         "connectionId": connection_id,
@@ -1222,20 +1269,57 @@ async def request_bot(
             ex=86400,
         )
 
-    # Schedule bot timeout job (max_bot_time enforcement via scheduler)
-    scheduler_job_id = await _schedule_bot_timeout(
-        meeting_id=meeting_id,
-        user_id=current_user.id,
-        platform=req.platform.value,
-        native_meeting_id=native_meeting_id,
-        max_bot_time_ms=resolved_max_bot_time,
-    )
-    if scheduler_job_id:
-        current_data = dict(new_meeting.data or {})
-        current_data["scheduler_job_id"] = scheduler_job_id
-        new_meeting.data = current_data
-        await db.commit()
-        await db.refresh(new_meeting)
+    # Schedule bot timeout or rotation job
+    # Resolve rotation config: request > user defaults > system defaults (always on)
+    rotation_enabled = True  # Default: always on
+    rotation_interval_ms = ROTATION_DEFAULT_INTERVAL_MS
+    rotation_overlap_ms = ROTATION_DEFAULT_OVERLAP_MS
+
+    if req.rotation is not None:
+        rotation_enabled = req.rotation.enabled
+        if req.rotation.interval_ms is not None:
+            rotation_interval_ms = req.rotation.interval_ms
+        if req.rotation.overlap_ms is not None:
+            rotation_overlap_ms = req.rotation.overlap_ms
+
+    current_data = dict(new_meeting.data or {})
+
+    if rotation_enabled:
+        # Schedule rotation job instead of timeout
+        rotation_config = {
+            "enabled": True,
+            "interval_ms": rotation_interval_ms,
+            "overlap_ms": rotation_overlap_ms,
+            "rotation_count": 0,
+            "consecutive_failures": 0,
+        }
+        current_data["rotation"] = rotation_config
+
+        scheduler_job_id = await _schedule_bot_rotation(
+            meeting_id=meeting_id,
+            user_id=current_user.id,
+            interval_ms=rotation_interval_ms,
+            rotation_count=0,
+        )
+        if scheduler_job_id:
+            current_data["rotation"]["scheduler_job_id"] = scheduler_job_id
+            # Also store as top-level scheduler_job_id for backward compat
+            current_data["scheduler_job_id"] = scheduler_job_id
+    else:
+        # Traditional timeout behavior
+        scheduler_job_id = await _schedule_bot_timeout(
+            meeting_id=meeting_id,
+            user_id=current_user.id,
+            platform=req.platform.value,
+            native_meeting_id=native_meeting_id,
+            max_bot_time_ms=resolved_max_bot_time,
+        )
+        if scheduler_job_id:
+            current_data["scheduler_job_id"] = scheduler_job_id
+
+    new_meeting.data = current_data
+    await db.commit()
+    await db.refresh(new_meeting)
 
     return MeetingResponse.model_validate(new_meeting)
 
@@ -1675,6 +1759,20 @@ async def stop_bot(
 
         # Send leave command via Redis
         if redis_client:
+            # --- Rotation: cancel rotation job and stop outgoing bot too ---
+            rotation = (meeting.data or {}).get("rotation", {})
+            if rotation.get("enabled"):
+                # Cancel the pending rotation scheduler job
+                rot_job_id = rotation.get("scheduler_job_id")
+                if rot_job_id:
+                    await _cancel_bot_timeout(rot_job_id, meeting.id)
+
+                # Stop outgoing bot if still running during overlap
+                outgoing_container = rotation.get("outgoing_container_id")
+                if outgoing_container:
+                    logger.info(f"[rotation] Stopping outgoing bot {outgoing_container} for meeting {meeting.id} (user stop)")
+                    background_tasks.add_task(_delayed_container_stop, outgoing_container, meeting.id, 0)
+
             try:
                 command_channel = f"bot_commands:meeting:{meeting.id}"
                 await redis_client.publish(command_channel, json.dumps({"action": "leave", "meeting_id": meeting.id}))
@@ -1708,6 +1806,262 @@ async def stop_bot(
         )
 
     return {"message": "Stop request accepted and is being processed."}
+
+
+# ---------------------------------------------------------------------------
+# Bot Rotation — Internal endpoint called by scheduler
+# ---------------------------------------------------------------------------
+
+ROTATION_DEFAULT_INTERVAL_MS = int(os.getenv("ROTATION_DEFAULT_INTERVAL_MS", "7200000"))
+ROTATION_DEFAULT_OVERLAP_MS = int(os.getenv("ROTATION_DEFAULT_OVERLAP_MS", "120000"))
+ROTATION_MAX_RETRY = int(os.getenv("ROTATION_MAX_RETRY", "3"))
+ROTATION_RETRY_BACKOFF_MS = int(os.getenv("ROTATION_RETRY_BACKOFF_MS", "300000"))
+
+
+@router.post(
+    "/bots/internal/rotation/{meeting_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Internal: scheduler-triggered bot rotation",
+    include_in_schema=False,
+)
+async def scheduler_rotation_spawn(
+    meeting_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Called by the scheduler to rotate the bot.
+
+    Spawns a new bot for the same meeting (Phase 1). The outgoing bot is
+    stopped later (Phase 2) when the new bot reaches ACTIVE status and
+    the status_change callback processes the pending_handoff.
+    """
+    meeting = await db.get(Meeting, meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    # Only rotate if meeting is active
+    if meeting.status != MeetingStatus.ACTIVE.value:
+        logger.info(f"[rotation] Meeting {meeting_id} not active ({meeting.status}), skipping rotation")
+        return {"message": f"Meeting not active: {meeting.status}"}
+
+    meeting_data = dict(meeting.data or {})
+    rotation = meeting_data.get("rotation", {})
+
+    # Idempotency: skip if a handoff is already in progress
+    if rotation.get("pending_handoff"):
+        logger.info(f"[rotation] Meeting {meeting_id}: handoff already in progress, skipping")
+        return {"message": "Handoff already in progress"}
+
+    rotation = meeting_data.get("rotation", {})
+
+    # Rotation may have been disabled since scheduling
+    if not rotation.get("enabled", True):
+        # Cancel the rotation job that triggered this
+        old_job_id = rotation.get("scheduler_job_id")
+        if old_job_id:
+            await _cancel_bot_timeout(old_job_id, meeting_id)
+        logger.info(f"[rotation] Rotation disabled for meeting {meeting_id}, falling back to timeout")
+        # Schedule a regular timeout instead
+        await _schedule_bot_timeout(
+            meeting_id=meeting_id,
+            user_id=meeting.user_id,
+            platform=meeting.platform,
+            native_meeting_id=meeting.platform_specific_id,
+            max_bot_time_ms=ROTATION_DEFAULT_OVERLAP_MS + 60000,  # Grace period
+        )
+        return {"message": "Rotation disabled, scheduled timeout"}
+
+    interval_ms = rotation.get("interval_ms", ROTATION_DEFAULT_INTERVAL_MS)
+    overlap_ms = rotation.get("overlap_ms", ROTATION_DEFAULT_OVERLAP_MS)
+    rotation_count = rotation.get("rotation_count", 0)
+    consecutive_failures = rotation.get("consecutive_failures", 0)
+
+    # Check max retries
+    if consecutive_failures >= ROTATION_MAX_RETRY:
+        # Cancel the rotation job that triggered this
+        old_job_id = rotation.get("scheduler_job_id")
+        if old_job_id:
+            await _cancel_bot_timeout(old_job_id, meeting_id)
+        logger.warning(f"[rotation] Meeting {meeting_id}: {consecutive_failures} consecutive failures, falling back to timeout")
+        await _schedule_bot_timeout(
+            meeting_id=meeting_id,
+            user_id=meeting.user_id,
+            platform=meeting.platform,
+            native_meeting_id=meeting.platform_specific_id,
+            max_bot_time_ms=60000,
+        )
+        return {"message": "Max rotation retries exceeded"}
+
+    # --- Extract original bot_config parameters from meeting data ---
+    platform_value = meeting.platform
+    native_meeting_id = meeting.platform_specific_id
+    user_id = meeting.user_id
+
+    # Build new connection_id and token
+    new_connection_id = str(uuid_lib.uuid4())
+    meeting_token = mint_meeting_token(
+        meeting_id, user_id, platform_value, native_meeting_id,
+        ttl_seconds=max(interval_ms // 1000 + 3600, 7200),
+    )
+
+    # Retrieve passcode and meeting_url from stored data
+    passcode = meeting_data.get("passcode", "")
+    meeting_url = meeting_data.get("meeting_url", "")
+
+    # Reuse recording settings from the original meeting data
+    recording_enabled = meeting_data.get("recording_enabled", True)
+    capture_modes = meeting_data.get("capture_modes", os.getenv("CAPTURE_MODES", "audio,video").split(","))
+
+    # Construct the meeting URL for the bot
+    constructed_url = meeting_url
+    if not constructed_url:
+        # Reconstruct from platform + native_meeting_id
+        if platform_value == "google_meet":
+            constructed_url = f"https://meet.google.com/{native_meeting_id}"
+        elif platform_value == "zoom" and passcode:
+            constructed_url = f"https://zoom.us/j/{native_meeting_id}?pwd={passcode}"
+
+    # Build new bot_config
+    bot_config = {
+        "meeting_id": meeting_id,
+        "platform": platform_value,
+        "meetingUrl": constructed_url,
+        "botName": meeting_data.get("bot_name", "."),
+        "token": meeting_token,
+        "nativeMeetingId": native_meeting_id,
+        "connectionId": new_connection_id,
+        "language": meeting_data.get("language"),
+        "task": meeting_data.get("task"),
+        "transcriptionTier": meeting_data.get("transcription_tier", "realtime"),
+        "redisUrl": REDIS_URL,
+        "automaticLeave": meeting_data.get("resolved_timeouts", {}),
+        "meetingApiCallbackUrl": f"{MEETING_API_URL}/bots/internal/callback/exited",
+        "recordingEnabled": recording_enabled,
+        "transcribeEnabled": meeting_data.get("transcribe_enabled", True),
+        "captureModes": capture_modes,
+        "recordingUploadUrl": f"{MEETING_API_URL}/internal/recordings/upload",
+        "transcriptionServiceUrl": os.getenv("TRANSCRIPTION_SERVICE_URL"),
+        "transcriptionServiceToken": os.getenv("TRANSCRIPTION_SERVICE_TOKEN"),
+    }
+    if passcode:
+        bot_config["passcode"] = passcode
+
+    # --- Spawn new container ---
+    container_name = f"meeting-{meeting_id}-{new_connection_id[:8]}"
+    spawn_env = {
+        "BOT_CONFIG": json.dumps(bot_config),
+        "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO").upper(),
+        "VIDEO_HWACCEL": os.getenv("VIDEO_HWACCEL", "none").lower(),
+    }
+    if platform_value == "zoom":
+        if os.getenv("ZOOM_WEB", "").strip() == "true":
+            spawn_env["ZOOM_WEB"] = "true"
+        if os.getenv("ZOOM_SDK", "").strip() == "true":
+            spawn_env["ZOOM_SDK"] = "true"
+            zc_id = os.getenv("ZOOM_CLIENT_ID")
+            zc_sec = os.getenv("ZOOM_CLIENT_SECRET")
+            if zc_id and zc_sec:
+                spawn_env["ZOOM_CLIENT_ID"] = zc_id
+                spawn_env["ZOOM_CLIENT_SECRET"] = zc_sec
+    spawn_result = await _spawn_via_runtime_api(
+        profile="meeting",
+        config={"image": BOT_IMAGE_NAME, "env": spawn_env},
+        user_id=user_id,
+        callback_url=f"{MEETING_API_URL}/bots/internal/callback/exited",
+        metadata={"meeting_id": meeting_id, "connection_id": new_connection_id},
+    )
+
+    if not spawn_result:
+        logger.error(f"[rotation] Failed to spawn new bot for meeting {meeting_id}")
+        # Update failure count and schedule retry
+        rotation["consecutive_failures"] = consecutive_failures + 1
+        rotation["last_failure"] = datetime.now(timezone.utc).isoformat()
+        meeting_data["rotation"] = rotation
+        meeting.data = meeting_data
+        await db.commit()
+
+        # Cancel old rotation job and schedule retry
+        old_job_id = rotation.get("scheduler_job_id")
+        if old_job_id:
+            await _cancel_bot_timeout(old_job_id, meeting_id)
+        retry_job_id = await _schedule_bot_rotation(
+            meeting_id=meeting_id,
+            user_id=user_id,
+            interval_ms=ROTATION_RETRY_BACKOFF_MS,
+            rotation_count=rotation_count,
+        )
+        if retry_job_id:
+            meeting_data = dict(meeting.data or {})
+            meeting_data["rotation"]["scheduler_job_id"] = retry_job_id
+            meeting.data = meeting_data
+            await db.commit()
+        return {"message": "Spawn failed, retry scheduled"}
+
+    # --- Create new session ---
+    new_session = MeetingSession(
+        meeting_id=meeting_id,
+        session_uid=new_connection_id,
+        session_start_time=datetime.now(timezone.utc),
+    )
+    db.add(new_session)
+
+    # --- Update meeting state ---
+    # Refresh to get latest data (avoid race with concurrent recording uploads).
+    await db.refresh(meeting)
+    outgoing_container = meeting.bot_container_id
+    # Find the current active session_uid (the new session was just added).
+    outgoing_session_uid = None
+    session_result = await db.execute(
+        select(MeetingSession)
+        .where(MeetingSession.meeting_id == meeting_id)
+        .order_by(MeetingSession.session_start_time.desc())
+    )
+    sessions = session_result.scalars().all()
+    if len(sessions) > 1:
+        outgoing_session_uid = sessions[1].session_uid
+
+    new_container_name = spawn_result.get("container_name", spawn_result.get("name", container_name))
+
+    # Build fresh rotation state on latest data.
+    meeting_data = dict(meeting.data or {})
+    rotation = meeting_data.get("rotation", {})
+    rotation["pending_handoff"] = True
+    rotation["outgoing_container_id"] = outgoing_container
+    rotation["outgoing_session_uid"] = outgoing_session_uid
+    rotation["overlap_ms"] = overlap_ms
+    rotation["consecutive_failures"] = 0
+    rotation["handoff_started_at"] = datetime.now(timezone.utc).isoformat()
+    rotation["rotation_count"] = rotation_count
+
+    meeting_data["rotation"] = rotation
+    meeting.bot_container_id = new_container_name
+    meeting.data = meeting_data
+    await db.commit()
+
+    # --- Cancel any existing rotation job and schedule next ---
+    old_job_id = rotation.get("scheduler_job_id")
+    if old_job_id:
+        await _cancel_bot_timeout(old_job_id, meeting_id)
+
+    next_count = rotation_count + 1
+    next_job_id = await _schedule_bot_rotation(
+        meeting_id=meeting_id,
+        user_id=user_id,
+        interval_ms=interval_ms,
+        rotation_count=next_count,
+    )
+    if next_job_id:
+        await db.refresh(meeting)
+        meeting_data = dict(meeting.data or {})
+        meeting_data["rotation"]["scheduler_job_id"] = next_job_id
+        meeting.data = meeting_data
+        await db.commit()
+
+    logger.info(
+        f"[rotation] Meeting {meeting_id}: spawned new bot {new_container_name} "
+        f"(outgoing={outgoing_container}, pending_handoff=true, next_rotation={next_count})"
+    )
+    return {"message": "Rotation spawn successful", "container": new_container_name}
 
 
 @router.delete(

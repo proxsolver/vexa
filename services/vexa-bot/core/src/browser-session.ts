@@ -244,7 +244,7 @@ export async function runBrowserSession(config: BrowserSessionConfig): Promise<v
             if (!chatService) {
               const platform = getPlatformFromUrl(currentPage.url());
               const meetingId = config.meeting_id ?? 0;
-              const botName = 'Vexa Bot';
+              const botName = '.';
               console.log(`[browser-session] [Chat] Initialising MeetingChatService (platform=${platform}, meetingId=${meetingId})`);
               chatService = new MeetingChatService(currentPage, platform, meetingId, botName, config.redisUrl);
             }

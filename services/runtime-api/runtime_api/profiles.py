@@ -56,7 +56,7 @@ PROFILE_DEFAULTS = {
         "shm_size": 0,
     },
     "idle_timeout": 300,
-    "auto_remove": True,
+    "auto_remove": False,
     "ports": {},
     "mounts": [],
     "env": {},

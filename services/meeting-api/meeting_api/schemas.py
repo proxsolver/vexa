@@ -14,13 +14,43 @@ logger = logging.getLogger(__name__)
 # These are the accepted language codes from the faster-whisper library
 # Source: faster_whisper.tokenizer._LANGUAGE_CODES
 ACCEPTED_LANGUAGE_CODES = {
-    "af", "am", "ar", "as", "az", "ba", "be", "bg", "bn", "bo", "br", "bs", "ca", "cs", "cy", 
-    "da", "de", "el", "en", "es", "et", "eu", "fa", "fi", "fo", "fr", "gl", "gu", "ha", "haw", 
-    "he", "hi", "hr", "ht", "hu", "hy", "id", "is", "it", "ja", "jw", "ka", "kk", "km", "kn", 
-    "ko", "la", "lb", "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn", "mr", "ms", "mt", 
-    "my", "ne", "nl", "nn", "no", "oc", "pa", "pl", "ps", "pt", "ro", "ru", "sa", "sd", "si", 
-    "sk", "sl", "sn", "so", "sq", "sr", "su", "sv", "sw", "ta", "te", "tg", "th", "tk", "tl", 
+    "af", "am", "ar", "as", "az", "ba", "be", "bg", "bn", "bo", "br", "bs", "ca", "cs", "cy",
+    "da", "de", "el", "en", "es", "et", "eu", "fa", "fi", "fo", "fr", "gl", "gu", "ha", "haw",
+    "he", "hi", "hr", "ht", "hu", "hy", "id", "is", "it", "ja", "jw", "ka", "kk", "km", "kn",
+    "ko", "la", "lb", "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn", "mr", "ms", "mt",
+    "my", "ne", "nl", "nn", "no", "oc", "pa", "pl", "ps", "pt", "ro", "ru", "sa", "sd", "si",
+    "sk", "sl", "sn", "so", "sq", "sr", "su", "sv", "sw", "ta", "te", "tg", "th", "tk", "tl",
     "tr", "tt", "uk", "ur", "uz", "vi", "yi", "yo", "zh", "yue"
+}
+
+# Map common English language names to ISO 639-1 codes for normalization.
+# Some external sources (e.g. certain bot SDKs) emit full names instead of codes.
+LANGUAGE_NAME_TO_CODE = {
+    "afrikaans": "af", "amharic": "am", "arabic": "ar", "assamese": "as",
+    "azerbaijani": "az", "bashkir": "ba", "belarusian": "be", "bosnian": "bs",
+    "bulgarian": "bg", "bengali": "bn", "tibetan": "bo", "breton": "br",
+    "catalan": "ca", "czech": "cs", "welsh": "cy", "danish": "da",
+    "german": "de", "greek": "el", "english": "en", "spanish": "es",
+    "estonian": "et", "basque": "eu", "persian": "fa", "finnish": "fi",
+    "faroese": "fo", "french": "fr", "galician": "gl", "gujarati": "gu",
+    "hausa": "ha", "hawaiian": "haw", "hebrew": "he", "hindi": "hi",
+    "croatian": "hr", "haitian": "ht", "hungarian": "hu", "armenian": "hy",
+    "indonesian": "id", "icelandic": "is", "italian": "it", "japanese": "ja",
+    "javanese": "jw", "georgian": "ka", "kazakh": "kk", "khmer": "km",
+    "kannada": "kn", "korean": "ko", "latin": "la", "luxembourgish": "lb",
+    "lingala": "ln", "lao": "lo", "lithuanian": "lt", "latvian": "lv",
+    "malagasy": "mg", "maori": "mi", "macedonian": "mk", "malayalam": "ml",
+    "mongolian": "mn", "marathi": "mr", "malay": "ms", "maltese": "mt",
+    "burmese": "my", "nepali": "ne", "dutch": "nl", "norwegian nynorsk": "nn",
+    "norwegian": "no", "occitan": "oc", "punjabi": "pa", "polish": "pl",
+    "pashto": "ps", "portuguese": "pt", "romanian": "ro", "russian": "ru",
+    "sanskrit": "sa", "sindhi": "sd", "sinhala": "si", "slovak": "sk",
+    "slovenian": "sl", "shona": "sn", "somali": "so", "albanian": "sq",
+    "serbian": "sr", "sundanese": "su", "swedish": "sv", "swahili": "sw",
+    "tamil": "ta", "telugu": "te", "tajik": "tg", "thai": "th",
+    "turkmen": "tk", "tagalog": "tl", "turkish": "tr", "tatar": "tt",
+    "ukrainian": "uk", "urdu": "ur", "uzbek": "uz", "vietnamese": "vi",
+    "yiddish": "yi", "yoruba": "yo", "chinese": "zh", "cantonese": "yue",
 }
 
 # --- Allowed Tasks ---
@@ -420,6 +450,27 @@ _TEAMS_ENTERPRISE_HOSTS = {
 }
 
 
+class RotationConfig(BaseModel):
+    """Configuration for automatic bot rotation.
+
+    When enabled, a new bot is spawned every `interval_ms` milliseconds
+    to replace the current bot, with a configurable overlap window to
+    ensure no gaps in recording or transcription.
+    """
+    model_config = {"extra": "forbid"}
+
+    enabled: bool = Field(True, description="Enable automatic bot rotation")
+    interval_ms: Optional[int] = Field(
+        None,
+        description="Rotation interval in ms. Default: max_bot_time (2h). "
+                    "The rotation timer replaces max_bot_time when rotation is enabled."
+    )
+    overlap_ms: Optional[int] = Field(
+        None,
+        description="Overlap duration in ms. New bot joins this long before old bot leaves. Default: 120000 (2 min)."
+    )
+
+
 def _is_teams_host(host: str) -> bool:
     return host in _TEAMS_ENTERPRISE_HOSTS or host.endswith(".teams.microsoft.us") or host.endswith(".teams.microsoft.com")
 
@@ -619,6 +670,11 @@ class MeetingCreate(BaseModel):
     authenticated: Optional[bool] = Field(
         False,
         description="Use stored browser userdata for authenticated join. Requires prior browser_session setup."
+    )
+    rotation: Optional[RotationConfig] = Field(
+        None,
+        description="Bot rotation configuration. When set, a new bot replaces the current one every interval_ms "
+                    "with an overlap window to ensure continuous recording/transcription. Default: enabled with 2h interval."
     )
     # Workspace fields — used by browser_session mode for git workspace setup
     workspaceGitRepo: Optional[str] = Field(None, description="Git repo URL for workspace setup in browser_session mode")
@@ -1010,10 +1066,15 @@ class MeetingConfigUpdate(BaseModel):
     @field_validator('language')
     @classmethod
     def validate_language(cls, v):
-        """Validate that the language code is one of the accepted faster-whisper codes."""
-        if v is not None and v != "" and v not in ACCEPTED_LANGUAGE_CODES:
-            raise ValueError(f"Invalid language code '{v}'. Must be one of: {sorted(ACCEPTED_LANGUAGE_CODES)}")
-        return v
+        """Normalize and validate language to an accepted faster-whisper code."""
+        if v is None or v == "":
+            return v
+        if v in ACCEPTED_LANGUAGE_CODES:
+            return v
+        normalized = LANGUAGE_NAME_TO_CODE.get(v.lower())
+        if normalized:
+            return normalized
+        raise ValueError(f"Invalid language code '{v}'. Must be one of: {sorted(ACCEPTED_LANGUAGE_CODES)}")
 
     @field_validator('allowed_languages')
     @classmethod
@@ -1053,10 +1114,15 @@ class TranscriptionSegment(BaseModel):
     @field_validator('language')
     @classmethod
     def validate_language(cls, v):
-        """Validate that the language code is one of the accepted faster-whisper codes."""
-        if v is not None and v != "" and v not in ACCEPTED_LANGUAGE_CODES:
-            raise ValueError(f"Invalid language code '{v}'. Must be one of: {sorted(ACCEPTED_LANGUAGE_CODES)}")
-        return v
+        """Normalize and validate language to an accepted faster-whisper code."""
+        if v is None or v == "":
+            return v
+        if v in ACCEPTED_LANGUAGE_CODES:
+            return v
+        normalized = LANGUAGE_NAME_TO_CODE.get(v.lower())
+        if normalized:
+            return normalized
+        raise ValueError(f"Invalid language code '{v}'. Must be one of: {sorted(ACCEPTED_LANGUAGE_CODES)}")
 
     class Config:
         from_attributes = True

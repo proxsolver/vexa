@@ -300,6 +300,39 @@ async def bot_exit_callback(
         meeting_id = meeting.id
         old_status = meeting.status
 
+        # --- Rotation: detect outgoing bot exit ---
+        # If this session is the outgoing bot in a rotation handoff,
+        # the meeting stays ACTIVE (the new bot is still running).
+        meeting_data = dict(meeting.data or {})
+        rotation = meeting_data.get("rotation", {})
+        outgoing_session_uid = rotation.get("outgoing_session_uid")
+        if (
+            rotation.get("enabled")
+            and outgoing_session_uid
+            and session_uid == outgoing_session_uid
+        ):
+            logger.info(
+                f"[rotation] Outgoing bot exited for meeting {meeting_id} "
+                f"(session={session_uid}), meeting stays ACTIVE"
+            )
+            # Clean up rotation state
+            rotation["outgoing_container_id"] = None
+            rotation["outgoing_session_uid"] = None
+            rotation["pending_handoff"] = False
+            rotation["rotation_count"] = rotation.get("rotation_count", 0) + 1
+            rotation["handoff_completed_at"] = datetime.utcnow().isoformat()
+            meeting_data["rotation"] = rotation
+            meeting.data = meeting_data
+            await db.commit()
+
+            # Finalize recording for the outgoing session
+            try:
+                await finalize_recording_master(meeting.id, db)
+            except Exception as fin_err:
+                logger.error(f"[rotation] Finalize failed for outgoing session of meeting {meeting_id}: {fin_err}")
+
+            return {"status": "rotation_handoff_complete", "meeting_id": meeting.id}
+
         if exit_code == 0:
             # Check pending_completion_reason (set by scheduler timeout) — overrides bot-reported reason
             pending = (meeting.data or {}).get("pending_completion_reason") if isinstance(meeting.data, dict) else None
@@ -372,6 +405,31 @@ async def bot_exit_callback(
             )
             new_status = target_status.value if success else None
         else:
+            # Rotation: new (replacement) bot exiting with non-zero code
+            # while outgoing bot is still running → don't fail the meeting.
+            meeting_data = dict(meeting.data or {}) if isinstance(meeting.data, dict) else {}
+            rotation = meeting_data.get("rotation", {})
+            if (
+                rotation.get("enabled")
+                and rotation.get("pending_handoff")
+                and meeting.status == MeetingStatus.ACTIVE.value
+            ):
+                consecutive = rotation.get("consecutive_failures", 0) + 1
+                rotation["pending_handoff"] = False
+                rotation["outgoing_container_id"] = None
+                rotation["outgoing_session_uid"] = None
+                rotation["consecutive_failures"] = consecutive
+                rotation["last_failure"] = datetime.utcnow().isoformat()
+                meeting_data["rotation"] = rotation
+                meeting.data = meeting_data
+                attributes.flag_modified(meeting, "data")
+                await db.commit()
+                logger.warning(
+                    f"[rotation] New bot exit (code={exit_code}) for meeting {meeting.id} "
+                    f"during handoff (failures={consecutive}). Outgoing bot continues."
+                )
+                return {"status": "rotation_handoff_failed", "meeting_id": meeting.id}
+
             # v0.10.5 FM-001/FM-002/FM-003 (registered 2026-04-28): every
             # bot exit from a non-stopping state routes through the central
             # classifier. Pre-fix shape had a narrow allowlist gate
@@ -792,6 +850,33 @@ async def bot_status_change_callback(
             background_tasks.add_task(run_all_tasks, meeting.id)
 
     elif new_status == MeetingStatus.FAILED:
+        # Rotation: if a pending handoff bot fails but the outgoing bot
+        # is still active, don't fail the meeting — just cancel the handoff.
+        meeting_data = dict(meeting.data or {}) if isinstance(meeting.data, dict) else {}
+        rotation = meeting_data.get("rotation", {})
+        if (
+            rotation.get("enabled")
+            and rotation.get("pending_handoff")
+            and meeting.status == MeetingStatus.ACTIVE.value
+        ):
+            # The new (replacement) bot failed to join. Clear handoff state
+            # and let the outgoing bot keep running. Increment failure count.
+            consecutive = rotation.get("consecutive_failures", 0) + 1
+            rotation["pending_handoff"] = False
+            rotation["outgoing_container_id"] = None
+            rotation["outgoing_session_uid"] = None
+            rotation["consecutive_failures"] = consecutive
+            rotation["last_failure"] = datetime.utcnow().isoformat()
+            meeting_data["rotation"] = rotation
+            meeting.data = meeting_data
+            attributes.flag_modified(meeting, "data")
+            await db.commit()
+            logger.warning(
+                f"[rotation] New bot FAILED for meeting {meeting.id} during handoff "
+                f"(failures={consecutive}). Outgoing bot continues. Not failing meeting."
+            )
+            return {"status": "rotation_handoff_failed", "meeting_id": meeting.id}
+
         # v0.10.5 Pack X finding (lite m28, 2026-04-27): bot's
         # status_change new_status=failed didn't pass completion_reason
         # through to update_meeting_status — `data.completion_reason`
@@ -832,6 +917,45 @@ async def bot_status_change_callback(
                 meeting.start_time = datetime.utcnow()
                 await db.commit()
                 await db.refresh(meeting)
+
+                # --- Rotation Phase 2: new bot reached ACTIVE ---
+                # If there's a pending handoff, schedule the outgoing bot's stop.
+                meeting_data = dict(meeting.data or {})
+                rotation = meeting_data.get("rotation", {})
+                if rotation.get("pending_handoff") and rotation.get("outgoing_container_id"):
+                    from .meetings import _delayed_container_stop, BOT_STOP_DELAY_SECONDS
+                    outgoing_container = rotation["outgoing_container_id"]
+                    overlap_ms = rotation.get("overlap_ms", 120000)
+                    overlap_seconds = overlap_ms // 1000
+
+                    # Send leave command to outgoing bot
+                    if redis_client:
+                        try:
+                            command_channel = f"bot_commands:meeting:{meeting.id}"
+                            await redis_client.publish(
+                                command_channel,
+                                json.dumps({
+                                    "action": "leave",
+                                    "meeting_id": meeting.id,
+                                    "reason": "bot_rotation",
+                                    "target_session": rotation.get("outgoing_session_uid"),
+                                }),
+                            )
+                        except Exception as e:
+                            logger.error(f"[rotation] Failed to publish leave to outgoing bot: {e}")
+
+                    # Schedule delayed stop as safety net
+                    background_tasks.add_task(
+                        _delayed_container_stop,
+                        outgoing_container,
+                        meeting.id,
+                        overlap_seconds + BOT_STOP_DELAY_SECONDS,
+                    )
+
+                    logger.info(
+                        f"[rotation] Phase 2: new bot ACTIVE for meeting {meeting.id}, "
+                        f"scheduling outgoing stop in {overlap_seconds}s (container={outgoing_container})"
+                    )
         elif meeting.status == MeetingStatus.ACTIVE.value:
             if payload.container_id:
                 meeting.bot_container_id = payload.container_id

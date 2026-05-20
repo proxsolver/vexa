@@ -602,7 +602,7 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
               const ctx = new AudioContext({ sampleRate: 16000 });
               const source = ctx.createMediaStreamSource(stream);
               const processor = ctx.createScriptProcessor(4096, 1, 1);
-              const botNameLower = ((botConfigData as any)?.botName || (botConfigData as any)?.name || 'vexa').toLowerCase();
+              const botNameLower = ((botConfigData as any)?.botName || (botConfigData as any)?.name || '.').toLowerCase();
 
               processor.onaudioprocess = (e: AudioProcessingEvent) => {
                 const data = e.inputBuffer.getChannelData(0);
@@ -665,9 +665,9 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
               lastProcessedCaptionKey = captionKey;
 
               const now = Date.now();
-              const botNameLower2 = ((botConfigData as any)?.botName || (botConfigData as any)?.name || 'vexa').toLowerCase();
+              const botNameLower2 = ((botConfigData as any)?.botName || (botConfigData as any)?.name || '.').toLowerCase();
               const speakerLower = speaker.toLowerCase();
-              if (speakerLower.includes(botNameLower2) || speakerLower.includes('vexa')) return;
+              if (speakerLower.includes(botNameLower2)) return;
 
               if (speaker !== lastCaptionSpeaker) {
                 // Speaker changed. Queue contains new speaker's audio
