@@ -66,6 +66,7 @@
 | **MCP server** | 17 meeting tools for Claude, Cursor, Windsurf. AI agents join calls, read transcripts, speak in meetings. |
 | **Multi-tenant** | Users, scoped API tokens, isolated containers. Deploy once, serve your team. |
 | **Dashboard** | Open-source Next.js web UI — meetings, transcripts, agent chat, browser sessions. Ready to use out of the box. |
+| **Google Calendar** | OAuth 연동으로 캘린더 미팅 자동 감지, 봇 자동 참여, 실패 재시도, 미팅별 커스텀 설정. |
 | **Self-hostable** | Run on your infra. Meeting data never leaves your infrastructure. |
 
 
@@ -110,6 +111,16 @@ Run everything including your own GPU transcription service.
 *Meeting data never leaves your infrastructure* — see [deploy/](./deploy/) for setup guides.
 
 ## What's new
+
+**v0.10.6 — Google Calendar 통합**
+
+- **Google Calendar 연동** — 구글 캘린더 OAuth 연결 후 향후 7일간 미팅 자동 동기화. Zoom, Google Meet, Teams 미팅 URL 자동 감지
+- **자동 봇 참여** — 캘린더에 등록된 미팅 시작 전 지정된 시간(기본 2분)에 봇이 자동으로 참여하여 녹음 및 전사 시작
+- **실패 재시도** — 봇 참여 실패 시 지수 백오프로 최대 3회 자동 재시도. 미팅이 종료되지 않은 경우에만 재시도
+- **대시보드 통합** — 캘린더 연결 상태, 예정된 미팅 목록, 플랫폼 뱃지(Google Meet/Zoom/Teams)를 대시보드에서 확인
+- **미팅별 봇 설정** — 각 미팅마다 커스텀 봇 이름, 자동 참여/나가기 시간, 비디오 활성화 여부 개별 설정 가능
+- **과거 미팅 숨김** — 이미 종료된 미팅은 캘린더 뷰에서 자동으로 숨김 처리
+- **Zoom 실시간 전사** — PulseAudio 오디오 캡처를 Whisper 전사 파이프라인에 실시간 연결하여 Zoom 미팅 실시간 전사 지원
 
 **v0.10.4**
 
