@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 import { BotConfig } from '../../../types';
 import { log, callNeedsHumanHelpCallback } from '../../../utils';
-import { zoomAudioButtonSelector, zoomChatButtonSelector, zoomVideoButtonSelector } from './selectors';
+import { zoomAudioButtonSelector, zoomChatButtonSelector, zoomVideoButtonSelector, zoomPreviewMuteSelector } from './selectors';
 
 /**
  * Post-admission setup: join computer audio, dismiss any popups, verify audio.
@@ -47,6 +47,9 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
         'button:has-text("Join with Computer Audio")',
         'button:has-text("Join Audio by Computer")',
         'button:has-text("Computer Audio")',
+        '.ReactModal__Content button:has-text("Audio")',
+        '.zm-modal button:has-text("Audio")',
+        '[role="dialog"] button:has-text("Audio")',
       ].join(', ')).first();
       try {
         if (await computerAudioBtn.isVisible({ timeout: 1500 })) {
@@ -75,9 +78,9 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
         if (ariaLabel && (ariaLabel.toLowerCase().includes('join audio') || ariaLabel.toLowerCase() === 'audio')) {
           await audioBtn.click({ timeout: 5000 });
           log('[Zoom Web] Clicked Join Audio footer button — waiting for dialog...');
-          await page.waitForTimeout(1500);
+          await page.waitForTimeout(2000);
 
-          // Immediately check for dialog that just opened
+          // Check for dialog that just opened — try multiple selector strategies
           try {
             if (await computerAudioBtn.isVisible({ timeout: 3000 })) {
               await computerAudioBtn.click();
@@ -85,7 +88,27 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
               audioJoined = true;
               break;
             }
-          } catch { /* dialog didn't appear — will retry */ }
+          } catch { /* dialog didn't appear with known selectors */ }
+
+          // Fallback: use JS to find and click any audio-related button in a modal
+          const clicked = await page.evaluate(() => {
+            const modals = document.querySelectorAll('.ReactModal__Content, .zm-modal, [role="dialog"]');
+            for (const modal of modals) {
+              const buttons = modal.querySelectorAll('button');
+              for (const btn of buttons) {
+                const text = (btn.textContent || '').toLowerCase().trim();
+                if (text.includes('computer') || text === 'audio' || text.includes('join audio')) {
+                  (btn as HTMLElement).click();
+                  return text;
+                }
+              }
+            }
+            return null;
+          }).catch(() => null as string | null);
+          if (clicked) {
+            log(`[Zoom Web] Clicked audio button via JS fallback: "${clicked}"`);
+            await page.waitForTimeout(1000);
+          }
           continue;
         }
       }
@@ -170,6 +193,24 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
       await closeNotif.click();
     }
   } catch { /* no banner */ }
+
+  // Belt-and-braces mute after admission. join.ts mutes in the preview,
+  // but clicking "Join with Computer Audio" or Zoom's meeting-side state
+  // can re-enable the mic. Voice agent bots keep mic unmuted for TTS.
+  const isVoiceAgent = !!botConfig.voiceAgentEnabled;
+  if (!isVoiceAgent) {
+    try {
+      const muteBtn = page.locator('button[aria-label="Mute"]').first();
+      if (await muteBtn.isVisible({ timeout: 2000 })) {
+        await muteBtn.click();
+        log('[Zoom Web] Muted mic post-admission (was unmuted after audio join)');
+      } else {
+        log('[Zoom Web] Mic already muted post-admission');
+      }
+    } catch (e: any) {
+      log(`[Zoom Web] Could not verify mic mute post-admission: ${e.message}`);
+    }
+  }
 
   // Belt-and-braces video-off after admission. join.ts already toggles the
   // pre-join preview button when it says "Stop Video", but Zoom's meeting-side
