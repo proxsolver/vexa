@@ -87,7 +87,22 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
             (window as any).__vexaAudioService = audioService;
 
             // 10 retries × 3s delay = up to 30s wait time.
-            const mediaElements: HTMLMediaElement[] = await audioService.findMediaElements(10, 3000);
+            let mediaElements: HTMLMediaElement[] = await audioService.findMediaElements(10, 3000);
+
+            // Fallback: include RTCPeerConnection-hook injected audio elements.
+            // join.ts addInitScript patches RTCPeerConnection to mirror remote
+            // audio tracks into hidden <audio data-vexa-injected="true"> elements.
+            if (mediaElements.length === 0) {
+              const injected: HTMLAudioElement[] = (window as any).__vexaInjectedAudioElements || [];
+              const activeInjected = injected.filter(
+                (el) => !el.paused && el.srcObject instanceof MediaStream && (el.srcObject as MediaStream).getAudioTracks().length > 0
+              );
+              if (activeInjected.length > 0) {
+                mediaElements = activeInjected;
+                (window as any).logBot(`[Teams Recording] Using ${activeInjected.length} RTCPeerConnection-hook injected audio elements`);
+              }
+            }
+
             if (mediaElements.length === 0) {
               (window as any).logBot(
                 "[Teams BOT Warning] No active media elements found after retries; " +
@@ -208,6 +223,7 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
           // or upload URL missing); we still want speaker observation, but with no
           // session-start anchor for events we can't accumulate them.
           const degradedNoMedia = !!(window as any).__vexaDegradedNoMedia;
+          let captionFallbackIntervalId: ReturnType<typeof setInterval> | null = null;
 
           // Initialize Teams-specific speaker detection (browser context)
           if (!degradedNoMedia) {
@@ -282,7 +298,7 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
                 }
                 if (!id) {
                   if (!(element as any).dataset.vexaGeneratedId) {
-                    (element as any).dataset.vexaGeneratedId = 'teams-id-' + Math.random().toString(36).substr(2, 9);
+                    (element as any).dataset.vexaGeneratedId = 'teams-id-' + Math.random().toString(36).substring(2, 11);
                   }
                   id = (element as any).dataset.vexaGeneratedId as string;
                 }
@@ -587,9 +603,17 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
             let lastFlushedTextLength: number = 0;
 
             const setupPerSpeakerAudioRouting = () => {
-              const audioEl = document.querySelector('audio') as HTMLAudioElement | null;
+              // Try standard audio elements first, then RTCPeerConnection-hook injected ones
+              let audioEl = document.querySelector('audio') as HTMLAudioElement | null;
               if (!audioEl || !(audioEl.srcObject instanceof MediaStream)) {
-                (window as any).logBot?.('[Teams PerSpeaker] No audio element found, skipping per-speaker routing');
+                // Fallback: check injected audio elements from RTCPeerConnection hook
+                const injected: HTMLAudioElement[] = (window as any).__vexaInjectedAudioElements || [];
+                audioEl = injected.find(
+                  (el) => !el.paused && el.srcObject instanceof MediaStream && (el.srcObject as MediaStream).getAudioTracks().length > 0
+                ) || null;
+              }
+              if (!audioEl || !(audioEl.srcObject instanceof MediaStream)) {
+                (window as any).logBot?.('[Teams PerSpeaker] No audio element found (standard or injected), skipping per-speaker routing');
                 return;
               }
 
@@ -763,6 +787,70 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
             // Delay slightly to ensure audio element is ready
             setTimeout(setupPerSpeakerAudioRouting, 2000);
 
+            // Caption-independent fallback: periodically flush the audio ring
+            // buffer to the per-speaker pipeline even when captions are not
+            // available. Without this, caption failure means zero audio reaches
+            // the transcription pipeline (the ring buffer just accumulates).
+            // When captions ARE working, the caption observer handles flushes
+            // and this timer is a no-op (the queue is already empty).
+            const CAPTION_FALLBACK_FLUSH_MS = 5000;
+            const FALLBACK_SPEAKER_REUSE_WINDOW_MS = 30000;
+            const botNameLowerFallback = ((botConfigData as any)?.botName || (botConfigData as any)?.name || '.').toLowerCase();
+            let fallbackSpeakerCounter = 0;
+            let lastFallbackSpeaker = '';
+            let lastFallbackTime = 0;
+            const fallbackIntervalId = setInterval(() => {
+              if (audioQueue.length === 0) return;
+              // Don't interfere if captions are actively driving flushes
+              if (captionsEnabled && lastCaptionSpeaker) return;
+              let flushed = 0;
+              const now = Date.now();
+              const lookbackCutoff = now - 4000;
+              while (audioQueue.length > 0 && audioQueue[0].timestamp < lookbackCutoff) {
+                audioQueue.shift();
+              }
+              // Use the last known caption speaker, or a DOM-detected speaker, or fallback name
+              let speaker = lastCaptionSpeaker;
+              if (!speaker) {
+                const voiceOutlines = document.querySelectorAll('[data-tid="voice-level-stream-outline"]');
+                for (const outline of voiceOutlines) {
+                  const container = outline.closest('[data-tid*="participant"], [data-tid*="video-tile"], [data-tid*="roster"], [role="menuitem"]') as HTMLElement | null;
+                  if (!container) continue;
+                  let current: HTMLElement | null = outline as HTMLElement;
+                  let isSpeaking = false;
+                  while (current) {
+                    if (current.classList.contains('vdi-frame-occlusion')) { isSpeaking = true; break; }
+                    current = current.parentElement;
+                  }
+                  if (!isSpeaking) continue;
+                  const nameEl = container.querySelector('[data-tid*="display-name"], [data-tid*="participant-name"], .ms-Persona-primaryText, span[title]') as HTMLElement | null;
+                  if (nameEl) {
+                    const name = (nameEl.textContent || nameEl.getAttribute('title') || '').trim();
+                    if (name && name.length > 1 && name.length < 50) { speaker = name; break; }
+                  }
+                }
+              }
+              if (!speaker) {
+                if (!lastFallbackSpeaker || (now - lastFallbackTime) > FALLBACK_SPEAKER_REUSE_WINDOW_MS) {
+                  fallbackSpeakerCounter++;
+                  lastFallbackSpeaker = `Speaker ${fallbackSpeakerCounter}`;
+                }
+                lastFallbackTime = now;
+                speaker = lastFallbackSpeaker;
+              }
+              while (audioQueue.length > 0) {
+                const entry = audioQueue.shift()!;
+                if (typeof (window as any).__vexaTeamsAudioData === 'function') {
+                  (window as any).__vexaTeamsAudioData(speaker, Array.from(entry.data));
+                }
+                flushed++;
+              }
+              if (flushed > 0) {
+                (window as any).logBot?.(`[Teams Fallback] Flushed ${flushed} chunks to "${speaker}" (no captions — timer fallback)`);
+              }
+            }, CAPTION_FALLBACK_FLUSH_MS);
+            captionFallbackIntervalId = fallbackIntervalId;
+
             // ARIA-roles-based participant collection (find menuitems in
             // Participants panel that contain an avatar/image).
             function collectAriaParticipants(): string[] {
@@ -825,6 +913,7 @@ export async function startTeamsRecording(page: Page, botConfig: BotConfig): Pro
               if (monitoringStopped) return;
               monitoringStopped = true;
               clearInterval(checkInterval);
+              if (captionFallbackIntervalId !== null) clearInterval(captionFallbackIntervalId);
               try {
                 if (audioService && typeof audioService.disconnect === "function") {
                   audioService.disconnect();
