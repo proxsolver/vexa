@@ -292,8 +292,14 @@ async def forward_request(client: httpx.AsyncClient, method: str, url: str, requ
 
     # Security: strip any client-supplied identity headers (prevent spoofing)
     for h in ["x-user-id", "x-user-scopes", "x-user-limits",
-              "x-user-webhook-url", "x-user-webhook-secret", "x-user-webhook-events"]:
+              "x-user-webhook-url", "x-user-webhook-secret", "x-user-webhook-events",
+              "x-internal-secret"]:
         headers.pop(h, None)
+
+    # Inject internal secret for service-to-service auth
+    internal_secret = os.getenv("INTERNAL_API_SECRET", "")
+    if internal_secret and url.startswith(str(CALENDAR_SERVICE_URL or "")):
+        headers["x-internal-secret"] = internal_secret
 
     # Determine target service based on URL path prefix
     is_admin_request = url.startswith(f"{ADMIN_API_URL}/admin")
@@ -628,6 +634,18 @@ async def avatar_reset_proxy(platform: Platform, native_meeting_id: str, request
 
 # --- Calendar Routes (proxy to Calendar Service) ---
 
+
+def _verify_calendar_user_id(request: Request):
+    """IDOR guard: ensure user_id query param matches the authenticated user."""
+    from urllib.parse import urlparse, parse_qs
+    user_id_header = request.headers.get("x-user-id", "")
+    if not user_id_header:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    qs = parse_qs(str(request.url.query))
+    requested_uid = qs.get("user_id", [None])[0]
+    if requested_uid and str(requested_uid) != str(user_id_header):
+        raise HTTPException(status_code=403, detail="user_id does not match authenticated user")
+
 @app.post("/calendar/connect",
           tags=["Calendar"],
           summary="Trigger initial calendar sync after OAuth",
@@ -635,6 +653,7 @@ async def avatar_reset_proxy(platform: Platform, native_meeting_id: str, request
 async def calendar_connect_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
+    _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/connect"
     return await forward_request(app.state.http_client, "POST", url, request)
 
@@ -645,6 +664,7 @@ async def calendar_connect_proxy(request: Request):
 async def calendar_status_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
+    _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/status"
     return await forward_request(app.state.http_client, "GET", url, request)
 
@@ -655,6 +675,7 @@ async def calendar_status_proxy(request: Request):
 async def calendar_disconnect_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
+    _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/disconnect"
     return await forward_request(app.state.http_client, "DELETE", url, request)
 
@@ -665,6 +686,7 @@ async def calendar_disconnect_proxy(request: Request):
 async def calendar_events_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
+    _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/events"
     return await forward_request(app.state.http_client, "GET", url, request)
 
@@ -675,6 +697,7 @@ async def calendar_events_proxy(request: Request):
 async def calendar_preferences_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
+    _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/preferences"
     return await forward_request(app.state.http_client, "PUT", url, request)
 

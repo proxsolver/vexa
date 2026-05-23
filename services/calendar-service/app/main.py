@@ -6,7 +6,8 @@ import logging
 from datetime import timedelta
 
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -17,6 +18,7 @@ from app.sync import sync_user_calendar, schedule_upcoming_bots, _retry_failed_e
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
+INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "")
 
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger("calendar-service")
@@ -30,6 +32,17 @@ app = FastAPI(
     redoc_url="/redoc" if _PUBLIC_DOCS else None,
     openapi_url="/openapi.json" if _PUBLIC_DOCS else None,
 )
+
+
+@app.middleware("http")
+async def verify_internal_secret(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+    if INTERNAL_API_SECRET:
+        secret = request.headers.get("X-Internal-Secret", "")
+        if secret != INTERNAL_API_SECRET:
+            return Response(content='{"detail":"Unauthorized"}', status_code=401, media_type="application/json")
+    return await call_next(request)
 
 
 @app.on_event("startup")
@@ -82,7 +95,7 @@ async def connect_calendar(user_id: int = Query(...), db: AsyncSession = Depends
         return {"status": "connected", "events_synced": count}
     except Exception as e:
         logger.error(f"Calendar sync failed for user {user_id}: {e}")
-        raise HTTPException(status_code=400, detail=f"Calendar sync failed: {str(e)}")
+        raise HTTPException(status_code=400, detail="Calendar sync failed")
 
 
 @app.get("/calendar/status")

@@ -19,6 +19,7 @@ from app.google_calendar import (
     detect_platform,
     parse_event_time,
 )
+from app.crypto import decrypt
 
 logger = logging.getLogger("calendar-service.sync")
 
@@ -58,6 +59,14 @@ async def sync_user_calendar(user_id: int, db: AsyncSession) -> int:
     if not refresh_token:
         logger.info(f"User {user_id} has no Google Calendar refresh token")
         return 0
+
+    # Decrypt token if stored encrypted (dashboard sets encrypted=true)
+    if oauth.get("encrypted"):
+        try:
+            refresh_token = decrypt(refresh_token)
+        except Exception as e:
+            logger.error(f"Token decryption failed for user {user_id}: {e}")
+            return 0
 
     # Refresh access token
     access_token, expires_in = await refresh_access_token(

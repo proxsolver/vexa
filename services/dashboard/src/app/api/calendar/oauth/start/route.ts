@@ -16,12 +16,11 @@ function getGoogleClientId(): string {
 }
 
 function getStateSecret(): string {
-  return (
-    process.env.GOOGLE_OAUTH_STATE_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.VEXA_ADMIN_API_KEY ||
-    ""
-  );
+  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET || process.env.NEXTAUTH_SECRET || "";
+  if (!secret) {
+    throw new Error("GOOGLE_OAUTH_STATE_SECRET or NEXTAUTH_SECRET must be set");
+  }
+  return secret;
 }
 
 function toBase64Url(value: string): string {

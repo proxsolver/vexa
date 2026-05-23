@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { getUserById, updateUser } from "@/lib/vexa-admin-api";
+import { encrypt } from "@/lib/crypto";
 
 type CalendarOAuthStatePayload = {
   userId: string;
@@ -20,12 +21,11 @@ function getGoogleClientSecret(): string {
 }
 
 function getStateSecret(): string {
-  return (
-    process.env.GOOGLE_OAUTH_STATE_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.VEXA_ADMIN_API_KEY ||
-    ""
-  );
+  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET || process.env.NEXTAUTH_SECRET || "";
+  if (!secret) {
+    throw new Error("GOOGLE_OAUTH_STATE_SECRET or NEXTAUTH_SECRET must be set");
+  }
+  return secret;
 }
 
 function resolveRedirectUri(req: NextRequest): string {
@@ -47,7 +47,9 @@ function parseAndVerifyState(state: string, secret: string): CalendarOAuthStateP
   }
 
   const expectedSig = createHmac("sha256", secret).update(data).digest("base64url");
-  if (signature !== expectedSig) {
+  const sigBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
     throw new Error("Invalid state signature");
   }
 
@@ -100,7 +102,7 @@ async function exchangeCodeForGoogleTokens({
 
   const text = await resp.text();
   if (!resp.ok) {
-    throw new Error(`Google token exchange failed (${resp.status}): ${text}`);
+    throw new Error(`Google token exchange failed (${resp.status})`);
   }
 
   const payload = JSON.parse(text) as {
@@ -174,10 +176,11 @@ export async function POST(req: NextRequest) {
       ...existingData,
       google_calendar: {
         oauth: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
+          access_token: encrypt(tokens.access_token),
+          refresh_token: encrypt(tokens.refresh_token),
           expires_at: now + tokens.expires_in,
           scope: tokens.scope || "",
+          encrypted: true,
         },
       },
     };
