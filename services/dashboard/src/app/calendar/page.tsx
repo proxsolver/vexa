@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
 import { vexaAPI } from "@/lib/api";
+import { withBasePath } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 
 interface CalendarEvent {
@@ -101,14 +102,27 @@ export default function CalendarPage() {
   const userId = user?.id ? Number(user.id) : null;
 
   const fetchStatus = useCallback(async () => {
-    if (!userId) return;
+    let uid = userId;
+    if (!uid) {
+      try {
+        const meResp = await fetch(withBasePath("/api/auth/me"));
+        if (meResp.ok) {
+          const meData = await meResp.json();
+          if (meData.user?.id) uid = Number(meData.user.id);
+        }
+      } catch { /* ignore */ }
+    }
+    if (!uid) {
+      setIsLoading(false);
+      return;
+    }
     try {
-      const status = await vexaAPI.calendar.getStatus(userId);
+      const status = await vexaAPI.calendar.getStatus(uid);
       setConnected(status.connected);
       setEventCount(status.event_count);
 
       if (status.connected) {
-        const evts = await vexaAPI.calendar.getEvents(userId);
+        const evts = await vexaAPI.calendar.getEvents(uid);
         setEvents(evts.map((e) => ({ ...e, bot_name: (e as Record<string, unknown>).bot_name as string | null ?? null })));
       }
     } catch {
@@ -123,13 +137,22 @@ export default function CalendarPage() {
   }, [fetchStatus]);
 
   const handleConnect = async () => {
-    if (!user?.email) {
-      toast.error("No user email found");
-      return;
-    }
     setIsConnecting(true);
     try {
-      const { authUrl } = await vexaAPI.calendar.startOAuth(user.email, "/calendar");
+      // Get fresh email from server (zustand store may be stale)
+      let email = user?.email;
+      if (!email) {
+        const meResp = await fetch("/api/auth/me");
+        if (!meResp.ok) throw new Error("Not authenticated — please log in again");
+        const meData = await meResp.json();
+        email = meData.user?.email;
+      }
+      if (!email) {
+        toast.error("No user email found");
+        setIsConnecting(false);
+        return;
+      }
+      const { authUrl } = await vexaAPI.calendar.startOAuth(email, "/calendar");
       window.location.href = authUrl;
     } catch (error) {
       toast.error("Failed to start Google Calendar connection", {
