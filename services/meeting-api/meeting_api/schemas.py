@@ -347,6 +347,8 @@ class UserBase(BaseModel): # Base for common user fields
     image_url: Optional[str] = None
     max_concurrent_bots: Optional[int] = Field(None, description="Maximum number of concurrent bots allowed for the user")
     data: Optional[Dict[str, Any]] = Field(None, description="JSONB storage for arbitrary user data, like webhook URLs")
+    role: Optional[str] = Field("free", description="User role: admin, free, paid")
+    status: Optional[str] = Field("pending", description="Account status: pending, approved, rejected")
 
 class UserCreate(UserBase):
     pass
@@ -355,6 +357,8 @@ class UserResponse(UserBase):
     id: int
     created_at: datetime
     max_concurrent_bots: int = Field(..., description="Maximum number of concurrent bots allowed for the user")
+    role: str = Field("free", description="User role: admin, free, paid")
+    status: str = Field("pending", description="Account status: pending, approved, rejected")
 
     @field_serializer('data')
     def exclude_webhook_secret(self, data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -394,6 +398,8 @@ class UserUpdate(BaseModel):
     image_url: Optional[str] = None
     max_concurrent_bots: Optional[int] = Field(None, description="Maximum number of concurrent bots allowed for the user")
     data: Optional[Dict[str, Any]] = Field(None, description="JSONB storage for arbitrary user data, like webhook URLs and subscription info")
+    role: Optional[str] = Field(None, description="User role: admin, free, paid")
+    status: Optional[str] = Field(None, description="Account status: pending, approved, rejected")
 # --- END UserUpdate Schema ---
 
 # --- Meeting Schemas --- 
@@ -1209,6 +1215,8 @@ class UserTableResponse(BaseModel):
     image_url: Optional[str]
     created_at: datetime
     max_concurrent_bots: int
+    role: str = "free"
+    status: str = "pending"
     # Excludes: data, api_tokens
 
     class Config:
@@ -1396,3 +1404,42 @@ class ScreenContentRequest(BaseModel):
     start_share: bool = Field(True, description="Auto-start screen sharing")
 
 # --- END Voice Agent Schemas ---
+
+
+# --- AI Summary Schemas ---
+
+class ActionItem(BaseModel):
+    task: str = Field(..., description="The action item description")
+    assignee: Optional[str] = Field(None, description="Person responsible")
+
+class AISummaryData(BaseModel):
+    summary: str = Field(..., description="2-3 sentence meeting overview")
+    key_decisions: List[str] = Field(default_factory=list, description="Key decisions made")
+    action_items: List[ActionItem] = Field(default_factory=list, description="Action items with assignees")
+    topics: List[str] = Field(default_factory=list, description="Main topics discussed")
+    model: Optional[str] = Field(None, description="LLM model used for generation")
+    generated_at: Optional[str] = Field(None, description="ISO timestamp of generation")
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "AISummaryData":
+        items = raw.get("action_items", [])
+        parsed_items = []
+        for item in items:
+            if isinstance(item, dict):
+                parsed_items.append(item)
+            else:
+                parsed_items.append({"task": str(item)})
+        return cls(
+            summary=raw.get("summary", ""),
+            key_decisions=raw.get("key_decisions", []),
+            action_items=parsed_items,
+            topics=raw.get("topics", []),
+            model=raw.get("model"),
+            generated_at=raw.get("generated_at"),
+        )
+
+class AISummaryResponse(BaseModel):
+    meeting_id: int
+    ai_summary: Optional[AISummaryData] = Field(None, description="Generated summary, null if not available")
+
+# --- END AI Summary Schemas ---

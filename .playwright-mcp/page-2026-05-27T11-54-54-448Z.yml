@@ -1,0 +1,209 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "Lexor Logo Lexor" [ref=e6] [cursor=pointer]:
+            - /url: /
+            - img "Lexor Logo" [ref=e8]
+            - generic [ref=e9]: Lexor
+          - link "dev" [ref=e10] [cursor=pointer]:
+            - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+            - generic [ref=e11]: dev
+        - generic [ref=e12]:
+          - link "Full Documentation" [ref=e13] [cursor=pointer]:
+            - /url: https://docs.vexa.ai/
+            - img
+            - generic [ref=e14]: Full Documentation
+          - button "Toggle theme" [ref=e15]:
+            - img
+            - generic [ref=e16]: Toggle theme
+          - button "User menu" [ref=e17]:
+            - img
+            - generic [ref=e18]: User menu
+    - generic [ref=e19]:
+      - complementary [ref=e20]:
+        - navigation [ref=e25]:
+          - link "Meetings" [ref=e26] [cursor=pointer]:
+            - /url: /meetings
+            - img [ref=e27]
+            - text: Meetings
+          - button "Join Meeting" [ref=e30]:
+            - img [ref=e31]
+            - text: Join Meeting
+          - generic [ref=e32]:
+            - link "Calendar" [ref=e33] [cursor=pointer]:
+              - /url: /calendar
+              - img [ref=e34]
+              - text: Calendar
+            - link "Webhooks" [ref=e36] [cursor=pointer]:
+              - /url: /webhooks
+              - img [ref=e37]
+              - text: Webhooks
+            - link "MCP MCP Setup" [ref=e41] [cursor=pointer]:
+              - /url: /mcp
+              - img "MCP" [ref=e43]
+              - text: MCP Setup
+            - link "Profile" [ref=e44] [cursor=pointer]:
+              - /url: /profile
+              - img [ref=e45]
+              - text: Profile
+          - generic [ref=e54]:
+            - generic [ref=e56]:
+              - img [ref=e57]
+              - generic [ref=e59]: Admin
+            - link "Users" [ref=e60] [cursor=pointer]:
+              - /url: /admin/users
+              - img [ref=e61]
+              - text: Users
+            - link "Approvals" [ref=e66] [cursor=pointer]:
+              - /url: /admin/approvals
+              - img [ref=e67]
+              - text: Approvals
+            - link "Bots" [ref=e69] [cursor=pointer]:
+              - /url: /admin/bots
+              - img [ref=e70]
+              - text: Bots
+            - link "Audit Logs" [ref=e73] [cursor=pointer]:
+              - /url: /admin/audit-logs
+              - img [ref=e74]
+              - text: Audit Logs
+            - link "Settings" [ref=e76] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e77]
+              - text: Settings
+      - main [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e80]:
+            - heading "Google Calendar" [level=1] [ref=e81]
+            - paragraph [ref=e82]: Auto-join meetings and record transcripts from your calendar
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - generic [ref=e86]:
+                  - img [ref=e87]
+                  - text: Connection
+                - generic [ref=e89]: Connect your Google Calendar to automatically detect upcoming meetings with video call links.
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - img [ref=e92]
+                  - generic [ref=e95]: Connected
+                  - generic [ref=e96]: 23 events synced
+                - generic [ref=e97]:
+                  - button "Sync Now" [ref=e98]:
+                    - img
+                    - text: Sync Now
+                  - button "Disconnect" [ref=e99]:
+                    - img
+                    - text: Disconnect
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]:
+                  - img [ref=e103]
+                  - text: Auto-Join Preferences
+                - generic [ref=e106]: Configure how Vexa joins your scheduled meetings.
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - generic [ref=e109]:
+                    - generic [ref=e110]: Auto-Join Meetings
+                    - paragraph [ref=e111]: Automatically send a bot to meetings detected from your calendar.
+                  - switch [checked] [ref=e112]
+                - generic [ref=e114]:
+                  - generic [ref=e115]:
+                    - img [ref=e116]
+                    - text: Default Bot Name
+                  - paragraph [ref=e119]: Name shown in the meeting participant list. Can be overridden per meeting.
+                  - textbox "." [ref=e120]
+                - generic [ref=e121]:
+                  - generic [ref=e122]:
+                    - img [ref=e123]
+                    - text: Lead Time (minutes before meeting)
+                  - generic [ref=e126]:
+                    - button "1 min" [ref=e127]
+                    - button "2 min" [ref=e128]
+                    - button "5 min" [ref=e129]
+                    - button "10 min" [ref=e130]
+                - generic [ref=e131]:
+                  - generic [ref=e132]: Auto-Leave (bot exit time)
+                  - paragraph [ref=e133]: How long the bot stays in the meeting before leaving. Set to 0 to stay until the meeting ends.
+                  - generic [ref=e134]:
+                    - button "Until end" [ref=e135]
+                    - button "15 min" [ref=e136]
+                    - button "30 min" [ref=e137]
+                    - button "60 min" [ref=e138]
+                    - button "120 min" [ref=e139]
+                - button "Save Preferences" [ref=e140]
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143]:
+                  - img [ref=e144]
+                  - text: Upcoming Meetings
+                - generic [ref=e147]: Calendar events with video call links that Vexa can join.
+              - generic [ref=e149]:
+                - generic [ref=e150]:
+                  - generic [ref=e152]:
+                    - generic [ref=e153]:
+                      - generic [ref=e154]: 핸즈온 웨비나 | 기획부터 배포까지, 개발 여정 전반에서 GitHub Copilot 활용하기
+                      - generic [ref=e155]: Pending
+                    - paragraph [ref=e156]: 5월 28일 오후 01:30
+                  - generic [ref=e157]:
+                    - img [ref=e158]
+                    - button "." [ref=e161]:
+                      - generic [ref=e162]: .
+                      - img [ref=e163]
+                - generic [ref=e166]:
+                  - generic [ref=e168]:
+                    - generic [ref=e169]:
+                      - generic [ref=e170]: VoiceDNA Pilot-Run
+                      - generic [ref=e171]: Pending
+                    - paragraph [ref=e172]: 5월 29일 오후 02:00
+                  - generic [ref=e173]:
+                    - img [ref=e174]
+                    - button "." [ref=e177]:
+                      - generic [ref=e178]: .
+                      - img [ref=e179]
+                - generic [ref=e182]:
+                  - generic [ref=e183]:
+                    - generic [ref=e184]:
+                      - generic [ref=e185]:
+                        - generic [ref=e186]: 조직행동론 TIM502 (문희진, 온라인)
+                        - generic [ref=e187]: Zoom
+                        - generic [ref=e188]: Pending
+                      - paragraph [ref=e189]: 5월 30일 오전 09:00
+                    - link [ref=e190] [cursor=pointer]:
+                      - /url: https://unist-ac-kr.zoom.us/j/86493160153?pwd=o7QrbYCPI6PntTeajtgQ6aQFlR8DM2
+                      - img [ref=e191]
+                  - generic [ref=e195]:
+                    - img [ref=e196]
+                    - button "." [ref=e199]:
+                      - generic [ref=e200]: .
+                      - img [ref=e201]
+                - generic [ref=e204]:
+                  - generic [ref=e206]:
+                    - generic [ref=e207]:
+                      - generic [ref=e208]: 코액티브 코칭
+                      - generic [ref=e209]: Pending
+                    - paragraph [ref=e210]: 6월 1일 오후 07:30
+                  - generic [ref=e211]:
+                    - img [ref=e212]
+                    - button "." [ref=e215]:
+                      - generic [ref=e216]: .
+                      - img [ref=e217]
+                - generic [ref=e220]:
+                  - generic [ref=e221]:
+                    - generic [ref=e222]:
+                      - generic [ref=e223]:
+                        - generic [ref=e224]: 수요일 세미나 이현우(20268224)의 Zoom 회의
+                        - generic [ref=e225]: Zoom
+                        - generic [ref=e226]: Pending
+                      - paragraph [ref=e227]: 6월 3일 오후 06:30
+                    - link [ref=e228] [cursor=pointer]:
+                      - /url: https://unist-ac-kr.zoom.us/j/88122170586?pwd=EhTVjocL77p7P7LfEYtauP2irZIaT9
+                      - img [ref=e229]
+                  - generic [ref=e233]:
+                    - img [ref=e234]
+                    - button "." [ref=e237]:
+                      - generic [ref=e238]: .
+                      - img [ref=e239]
+    - region "Notifications alt+T"
+  - alert [ref=e53]

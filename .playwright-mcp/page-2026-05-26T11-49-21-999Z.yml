@@ -1,0 +1,119 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e8]:
+      - img "Google" [ref=e10]
+      - generic [ref=e11]: Google 계정으로 로그인
+    - generic [ref=e12]:
+      - generic [ref=e14]:
+        - heading "로그인" [level=1] [ref=e15]
+        - paragraph [ref=e16]:
+          - button "rolean.org" [ref=e17] [cursor=pointer]
+          - text: (으)로 이동
+      - generic [ref=e18]:
+        - generic [ref=e21]:
+          - generic [ref=e26]:
+            - textbox "이메일 또는 휴대전화" [active] [ref=e27]
+            - generic:
+              - generic: 이메일 또는 휴대전화
+          - paragraph [ref=e28]:
+            - link "이메일을 잊으셨나요?" [ref=e29] [cursor=pointer]:
+              - /url: /signin/v2/usernamerecovery?app_domain=https://meet.rolean.org&client_id=641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com&code_challenge=AJCNHvoGEK0YLuhpGAR_pOMVJS0OuhntFTlc3ZoYyHM&code_challenge_method=S256&continue=https://accounts.google.com/signin/oauth/legacy/consent?authuser%3Dunknown%26part%3DAJi8hAMZKwvU_CM2OYbSQuTDePEurCFsy4IuKcHeVslAAtmBCMVJmPukIPUPFPBnWba2Mqn1-LrLsZiLMcHlYEUhB-Dz9A_r_9mJmtMZKuGpfZRQ2rLej2UW_qI1vi1hlEA2DnM8ZA91irhej_Sh8dZGnnPPQKqGsHtqBvpicxOPXr_TwExnWgVlxCfUedPX-u5TExyyGpnHJEQplHy0eY0wpBdh3MFc22sJ10AjoLMNN7co7UR_Qoqbc98vLglF4E0NuHTPx6SIQ72QXceRLl5pC6rxs-uEApJyuL0HrLH8Wm6FKHNUQRK3M8h3mIggAxKdWLyHoGiuoJuD0PZNXvK4m8DmelAGUVjMKAUt7gTgVKV7vpeJJxFYPT-xXSCP_uaT0DrFA4sbAAAONdBSk838wyYL5Rgmv8WxriuEOhz8yantki6Ic6UfwUmi9je61e5pU02_IN6hEs4X0BUTESkGO9tmLSz5BXkIhuR43es2blrbrdTroe3eoNNQVtfLV5ZDdIvZIjmXtx91OjeoEpo3g0GfVyi6TjLUqOu9hvZC0DMJI0monjAKq2e_Vva2sb6E2BLhPjPhl3KoHJnzogcLikpjGVJ_YQ8TEkeBUYW63zp1AohDHM90Mrkia9PzHu-3M8QtBmyp%26flowName%3DGeneralOAuthFlow%26as%3DS-449430547%253A1779796160097157%26client_id%3D641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com%23&dsh=S-449430547:1779796160097157&flowName=GeneralOAuthLite&o2v=2&opparams=%253F&rart=ANgoxcc1hCnCxIEy_S6IQdgkBZpN_GcWfeV2YUraVXc9b_0fEL3-FRyNCGc9NIR9FhlG0TWfy0ck8B1Ok23Gt3JzEQE6HnxUs0gOH8CKAate5-tymqgxhjk&redirect_uri=https://meet.rolean.org/api/auth/callback/google&response_type=code&scope=openid+email+profile&service=lso&state=jS5i2WXgSiv6TTvOntpJ9pLzLv-4KpUyMZ8nOsb7mNw
+        - generic [ref=e31]:
+          - button "다음" [ref=e33]
+          - link "계정 만들기" [ref=e35] [cursor=pointer]:
+            - /url: /lifecycle/flows/signup?app_domain=https://meet.rolean.org&client_id=641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com&code_challenge=AJCNHvoGEK0YLuhpGAR_pOMVJS0OuhntFTlc3ZoYyHM&code_challenge_method=S256&continue=https://accounts.google.com/signin/oauth/legacy/consent?authuser%3Dunknown%26part%3DAJi8hAMZKwvU_CM2OYbSQuTDePEurCFsy4IuKcHeVslAAtmBCMVJmPukIPUPFPBnWba2Mqn1-LrLsZiLMcHlYEUhB-Dz9A_r_9mJmtMZKuGpfZRQ2rLej2UW_qI1vi1hlEA2DnM8ZA91irhej_Sh8dZGnnPPQKqGsHtqBvpicxOPXr_TwExnWgVlxCfUedPX-u5TExyyGpnHJEQplHy0eY0wpBdh3MFc22sJ10AjoLMNN7co7UR_Qoqbc98vLglF4E0NuHTPx6SIQ72QXceRLl5pC6rxs-uEApJyuL0HrLH8Wm6FKHNUQRK3M8h3mIggAxKdWLyHoGiuoJuD0PZNXvK4m8DmelAGUVjMKAUt7gTgVKV7vpeJJxFYPT-xXSCP_uaT0DrFA4sbAAAONdBSk838wyYL5Rgmv8WxriuEOhz8yantki6Ic6UfwUmi9je61e5pU02_IN6hEs4X0BUTESkGO9tmLSz5BXkIhuR43es2blrbrdTroe3eoNNQVtfLV5ZDdIvZIjmXtx91OjeoEpo3g0GfVyi6TjLUqOu9hvZC0DMJI0monjAKq2e_Vva2sb6E2BLhPjPhl3KoHJnzogcLikpjGVJ_YQ8TEkeBUYW63zp1AohDHM90Mrkia9PzHu-3M8QtBmyp%26flowName%3DGeneralOAuthFlow%26as%3DS-449430547%253A1779796160097157%26client_id%3D641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com%23&dsh=S-449430547:1779796160097157&flowEntry=SignUp&flowName=GlifWebSignIn&o2v=2&opparams=%253F&rart=ANgoxcc1hCnCxIEy_S6IQdgkBZpN_GcWfeV2YUraVXc9b_0fEL3-FRyNCGc9NIR9FhlG0TWfy0ck8B1Ok23Gt3JzEQE6HnxUs0gOH8CKAate5-tymqgxhjk&redirect_uri=https://meet.rolean.org/api/auth/callback/google&response_type=code&scope=openid+email+profile&service=lso&signInUrl=https://accounts.google.com/signin/oauth?app_domain%3Dhttps://meet.rolean.org%26client_id%3D641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com%26code_challenge%3DAJCNHvoGEK0YLuhpGAR_pOMVJS0OuhntFTlc3ZoYyHM%26code_challenge_method%3DS256%26continue%3Dhttps://accounts.google.com/signin/oauth/legacy/consent?authuser%253Dunknown%2526part%253DAJi8hAMZKwvU_CM2OYbSQuTDePEurCFsy4IuKcHeVslAAtmBCMVJmPukIPUPFPBnWba2Mqn1-LrLsZiLMcHlYEUhB-Dz9A_r_9mJmtMZKuGpfZRQ2rLej2UW_qI1vi1hlEA2DnM8ZA91irhej_Sh8dZGnnPPQKqGsHtqBvpicxOPXr_TwExnWgVlxCfUedPX-u5TExyyGpnHJEQplHy0eY0wpBdh3MFc22sJ10AjoLMNN7co7UR_Qoqbc98vLglF4E0NuHTPx6SIQ72QXceRLl5pC6rxs-uEApJyuL0HrLH8Wm6FKHNUQRK3M8h3mIggAxKdWLyHoGiuoJuD0PZNXvK4m8DmelAGUVjMKAUt7gTgVKV7vpeJJxFYPT-xXSCP_uaT0DrFA4sbAAAONdBSk838wyYL5Rgmv8WxriuEOhz8yantki6Ic6UfwUmi9je61e5pU02_IN6hEs4X0BUTESkGO9tmLSz5BXkIhuR43es2blrbrdTroe3eoNNQVtfLV5ZDdIvZIjmXtx91OjeoEpo3g0GfVyi6TjLUqOu9hvZC0DMJI0monjAKq2e_Vva2sb6E2BLhPjPhl3KoHJnzogcLikpjGVJ_YQ8TEkeBUYW63zp1AohDHM90Mrkia9PzHu-3M8QtBmyp%2526flowName%253DGeneralOAuthFlow%2526as%253DS-449430547%25253A1779796160097157%2526client_id%253D641140787653-j0re9q6p0o30b84j778emvr5v8tc2d35.apps.googleusercontent.com%2523%26dsh%3DS-449430547:1779796160097157%26flowName%3DGeneralOAuthLite%26o2v%3D2%26opparams%3D%25253F%26rart%3DANgoxcc1hCnCxIEy_S6IQdgkBZpN_GcWfeV2YUraVXc9b_0fEL3-FRyNCGc9NIR9FhlG0TWfy0ck8B1Ok23Gt3JzEQE6HnxUs0gOH8CKAate5-tymqgxhjk%26redirect_uri%3Dhttps://meet.rolean.org/api/auth/callback/google%26response_type%3Dcode%26scope%3Dopenid%2Bemail%2Bprofile%26service%3Dlso%26state%3DjS5i2WXgSiv6TTvOntpJ9pLzLv-4KpUyMZ8nOsb7mNw&state=jS5i2WXgSiv6TTvOntpJ9pLzLv-4KpUyMZ8nOsb7mNw
+  - contentinfo [ref=e36]:
+    - combobox [ref=e39] [cursor=pointer]:
+      - option "繁體中文"
+      - option "日本語"
+      - option "中文（香港）"
+      - option "한국어" [selected]
+      - option "简体中文"
+      - option "Afrikaans"
+      - option "azərbaycan"
+      - option "bosanski"
+      - option "català"
+      - option "Čeština"
+      - option "Cymraeg"
+      - option "Dansk"
+      - option "Deutsch"
+      - option "eesti"
+      - option "English (United Kingdom)"
+      - option "English (United States)"
+      - option "Español (España)"
+      - option "Español (Latinoamérica)"
+      - option "euskara"
+      - option "Filipino"
+      - option "Français (Canada)"
+      - option "Français (France)"
+      - option "Gaeilge"
+      - option "galego"
+      - option "Hrvatski"
+      - option "Indonesia"
+      - option "isiZulu"
+      - option "íslenska"
+      - option "Italiano"
+      - option "Kiswahili"
+      - option "latviešu"
+      - option "lietuvių"
+      - option "magyar"
+      - option "Melayu"
+      - option "Nederlands"
+      - option "norsk"
+      - option "o‘zbek"
+      - option "polski"
+      - option "Português (Brasil)"
+      - option "Português (Portugal)"
+      - option "română"
+      - option "shqip"
+      - option "Slovenčina"
+      - option "slovenščina"
+      - option "srpski (latinica)"
+      - option "Suomi"
+      - option "Svenska"
+      - option "Tiếng Việt"
+      - option "Türkçe"
+      - option "Ελληνικά"
+      - option "беларуская"
+      - option "български"
+      - option "кыргызча"
+      - option "қазақ тілі"
+      - option "македонски"
+      - option "монгол"
+      - option "Русский"
+      - option "српски (ћирилица)"
+      - option "Українська"
+      - option "ქართული"
+      - option "հայերեն"
+      - option "‫עברית‬‎"
+      - option "‫اردو‬‎"
+      - option "‫العربية‬‎"
+      - option "‫فارسی‬‎"
+      - option "አማርኛ"
+      - option "नेपाली"
+      - option "मराठी"
+      - option "हिन्दी"
+      - option "অসমীয়া"
+      - option "বাংলা"
+      - option "ਪੰਜਾਬੀ"
+      - option "ગુજરાતી"
+      - option "ଓଡ଼ିଆ"
+      - option "தமிழ்"
+      - option "తెలుగు"
+      - option "ಕನ್ನಡ"
+      - option "മലയാളം"
+      - option "සිංහල"
+      - option "ไทย"
+      - option "ລາວ"
+      - option "မြန်မာ"
+      - option "ខ្មែរ"
+    - list [ref=e40]:
+      - listitem [ref=e41]:
+        - link "도움말" [ref=e42] [cursor=pointer]:
+          - /url: https://support.google.com/accounts?hl=ko&p=account_iph
+      - listitem [ref=e43]:
+        - link "개인정보처리방침" [ref=e44] [cursor=pointer]:
+          - /url: https://accounts.google.com/TOS?loc=KR&hl=ko&privacy=true
+      - listitem [ref=e45]:
+        - link "약관" [ref=e46] [cursor=pointer]:
+          - /url: https://accounts.google.com/TOS?loc=KR&hl=ko

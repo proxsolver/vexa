@@ -1,0 +1,137 @@
+- generic:
+  - alert
+  - generic:
+    - banner:
+      - generic:
+        - generic:
+          - link:
+            - /url: /
+            - generic:
+              - img
+            - generic: Lexor
+          - link:
+            - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+            - generic: dev
+        - generic:
+          - link:
+            - /url: https://docs.vexa.ai/
+            - img
+            - generic: Full Documentation
+          - button [expanded]:
+            - img
+            - generic: Toggle theme
+          - button:
+            - img
+            - generic: User menu
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - navigation:
+                  - link:
+                    - /url: /meetings
+                    - img
+                    - text: Meetings
+                  - button:
+                    - img
+                    - text: Join Meeting
+                  - generic:
+                    - link:
+                      - /url: /calendar
+                      - img
+                      - text: Calendar
+                    - link:
+                      - /url: /webhooks
+                      - img
+                      - text: Webhooks
+                    - link:
+                      - /url: /mcp
+                      - generic:
+                        - img
+                      - text: MCP Setup
+                    - link:
+                      - /url: /profile
+                      - img
+                      - text: Profile
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                        - generic: Admin
+                    - button:
+                      - img
+                      - generic: Unlock Admin
+          - generic:
+            - link:
+              - /url: https://docs.vexa.ai/
+              - img
+              - text: API Docs
+            - link:
+              - /url: https://github.com/Vexa-ai/vexa/issues/new?labels=bug,hosted&title=[Hosted]%20&body=%23%23%20Environment%0AHosted%20service%20(dashboard.vexa.ai)%0A%0A%23%23%20Description%0A%0A%23%23%20Steps%20to%20reproduce%0A1.%20%0A%0A%23%23%20Expected%20behavior%0A%0A%23%23%20Actual%20behavior%0A
+              - img
+              - text: Report a Bug
+            - generic:
+              - generic:
+                - generic: vexa
+                - link:
+                  - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+                  - generic: dev
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Meetings
+                - paragraph: Browse and search your meeting transcriptions
+              - generic:
+                - button:
+                  - img
+                - generic:
+                  - button:
+                    - img
+                    - generic: Join Meeting
+            - generic:
+              - generic:
+                - img
+                - textbox:
+                  - /placeholder: Search meetings...
+              - generic:
+                - combobox:
+                  - generic: All Platforms
+                  - img
+                - combobox:
+                  - generic: All Status
+                  - img
+          - generic:
+            - generic:
+              - table:
+                - rowgroup:
+                  - row:
+                    - columnheader: Platform
+                    - columnheader: Meeting
+                    - columnheader: Status
+                    - columnheader: Duration
+                    - columnheader: Time
+                - rowgroup:
+                  - row:
+                    - cell:
+                      - generic:
+                        - img
+                        - paragraph: No meetings yet
+                        - button:
+                          - img
+                          - text: Join your first meeting
+    - region "Notifications alt+T"
+  - menu "Toggle theme" [active] [ref=e141]:
+    - menuitem "Light" [ref=e142]:
+      - img
+      - text: Light
+    - menuitem "Dark" [ref=e143]:
+      - img
+      - text: Dark
+    - menuitem "System" [ref=e144]:
+      - img
+      - text: System

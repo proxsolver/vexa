@@ -6,7 +6,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Main pages
   const mainPages = [
     "",
-    "/login",
     "/join",
     "/meetings",
     "/settings",

@@ -1,0 +1,605 @@
+{
+  "timestamp": "2026-05-19T13:55:01.071Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-05-19T13:15:45.115Z",
+    "activeFeatures": [
+      "dashboard",
+      "calendar-service",
+      "meeting-api",
+      "api-gateway",
+      "vexa-bot"
+    ],
+    "primaryFeature": "dashboard",
+    "features": {
+      "dashboard": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-05-16T18:07:46.412Z",
+          "lastUpdated": "2026-05-19T11:59:13.950Z"
+        },
+        "lastFile": "/home/harry/2026/vexa/services/dashboard/src/components/join/join-modal.tsx"
+      },
+      "calendar-service": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-05-16T18:19:11.713Z",
+          "lastUpdated": "2026-05-19T11:37:35.113Z"
+        },
+        "lastFile": "/home/harry/2026/vexa/services/calendar-service/app/main.py"
+      },
+      "meeting-api": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-05-18T03:59:38.135Z",
+          "lastUpdated": "2026-05-19T13:15:45.115Z"
+        },
+        "lastFile": "/home/harry/2026/vexa/services/meeting-api/meeting_api/meetings.py"
+      },
+      "api-gateway": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-05-18T08:19:03.705Z",
+          "lastUpdated": "2026-05-18T08:19:03.705Z"
+        },
+        "lastFile": "/home/harry/2026/vexa/services/api-gateway/main.py"
+      },
+      "vexa-bot": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-05-19T10:58:49.462Z",
+          "lastUpdated": "2026-05-19T11:00:19.412Z"
+        },
+        "lastFile": "/home/harry/2026/vexa/services/vexa-bot/core/src/platforms/msteams/recording.ts"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-05-16T17:53:39.346Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-05-19T13:15:45.115Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-05-16T18:07:46.412Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:09:01.294Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:09:01.584Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:09:01.865Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:09:02.149Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:09:02.438Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:10:16.440Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:10:30.824Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:10:43.398Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:14:18.006Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:19:11.713Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:19:28.660Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:19:38.351Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:19:44.455Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:19:51.147Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:20:09.623Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-16T18:34:34.234Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T00:14:12.436Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T00:14:30.672Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:49:14.753Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:49:15.026Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:49:15.280Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:49:15.574Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:49:15.868Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T03:59:38.135Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:00:11.672Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:00:41.745Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:01:00.949Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:01:31.639Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:01:47.484Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:03:27.315Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:04:04.701Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:04:31.612Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:08:59.255Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T04:09:13.583Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:05:28.876Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:11:17.866Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:11:28.416Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:11:43.256Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:12:03.250Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:17:54.668Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:18:14.388Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:19:03.705Z",
+        "feature": "api-gateway",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T08:30:50.895Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T09:10:12.276Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T09:14:35.390Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T09:18:06.902Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T09:18:32.549Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-18T09:20:38.794Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:56:31.070Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:57:07.364Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:58:32.400Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:58:49.462Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:58:49.887Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:58:50.242Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:59:09.124Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:59:33.256Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T10:59:33.673Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:00:19.412Z",
+        "feature": "vexa-bot",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:37:35.113Z",
+        "feature": "calendar-service",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:58:54.666Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:58:55.073Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:58:55.475Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:59:13.617Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T11:59:13.950Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:30:06.971Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:30:29.900Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:31:24.048Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:33:46.443Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:34:25.405Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:35:43.392Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:36:15.713Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:37:04.254Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:37:28.579Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:38:59.153Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:39:41.447Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:47:02.606Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:47:12.216Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T12:47:19.973Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:13:54.556Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:14:22.476Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:14:45.980Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:14:56.124Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:15:18.195Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-05-19T13:15:45.115Z",
+        "feature": "meeting-api",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

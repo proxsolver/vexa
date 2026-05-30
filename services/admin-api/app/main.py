@@ -3,7 +3,7 @@ import logging
 import secrets
 import string
 import os
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, status, Security, Response
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, status, Security, Response, Query
 from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -48,6 +48,12 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 
 # --- Pydantic Schemas for new endpoint ---
+ADMIN_EMAILS = [e.strip() for e in os.getenv("ADMIN_EMAILS", "proxsolver@gmail.com").split(",") if e.strip()]
+
+class ApprovalAction(BaseModel):
+    status: str = Field(..., description="New status: approved or rejected")
+    role: Optional[str] = Field(None, description="Optional role to set: admin, free, paid")
+
 class WebhookUpdate(BaseModel):
     webhook_url: HttpUrl
     webhook_secret: Optional[str] = Field(None, max_length=512)
@@ -156,6 +162,49 @@ from admin_models.database import engine as admin_engine
 
 def generate_secure_token(length=40, scope: str = "user"):
     return generate_prefixed_token(scope, length)
+
+# --- Admin Approval Endpoints ---
+@admin_router.get("/users/pending",
+             response_model=List[UserResponse],
+             summary="List users pending approval")
+async def list_pending_users(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(User).where(User.status == "pending").order_by(User.created_at.desc())
+    )
+    users = result.scalars().all()
+    for user in users:
+        if user.created_at is None:
+            user.created_at = datetime.utcnow().replace(tzinfo=None)
+            db.add(user)
+    await db.commit()
+    return [UserResponse.model_validate(u) for u in users]
+
+
+@admin_router.patch("/users/{user_id}/approval",
+             response_model=UserResponse,
+             summary="Approve or reject a user")
+async def approve_user(user_id: int, action: ApprovalAction, db: AsyncSession = Depends(get_db)):
+    if action.status not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="status must be 'approved' or 'rejected'")
+    if action.role and action.role not in ("admin", "free", "paid"):
+        raise HTTPException(status_code=400, detail="role must be 'admin', 'free', or 'paid'")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalars().first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_user.status = action.status
+    if action.role:
+        db_user.role = action.role
+    if action.status == "approved" and db_user.max_concurrent_bots == 0:
+        db_user.max_concurrent_bots = 1
+
+    await db.commit()
+    await db.refresh(db_user)
+    logger.info(f"Admin updated user {user_id}: status={action.status}, role={action.role}")
+    return UserResponse.model_validate(db_user)
+
 
 # --- User Endpoints ---
 @user_router.put("/webhook",
@@ -316,11 +365,14 @@ async def create_user(user_in: UserCreate, response: Response, db: AsyncSession 
         return UserResponse.model_validate(existing_user)
 
     user_data = user_in.model_dump()
+    is_admin = user_data['email'].lower() in [e.lower() for e in ADMIN_EMAILS]
     db_user = User(
         email=user_data['email'],
         name=user_data.get('name'),
         image_url=user_data.get('image_url'),
-        max_concurrent_bots=user_data.get('max_concurrent_bots', 0)
+        max_concurrent_bots=user_data.get('max_concurrent_bots', 1 if is_admin else 0),
+        role="admin" if is_admin else "free",
+        status="approved" if is_admin else "pending",
     )
     db.add(db_user)
     await db.commit()
@@ -854,6 +906,10 @@ async def validate_token(request: Request, payload: dict, db: AsyncSession = Dep
     if api_token.expires_at is not None and api_token.expires_at < datetime.utcnow():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
 
+    # Reject unapproved users
+    if user.status != "approved":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
+
     # Update last_used_at
     api_token.last_used_at = datetime.utcnow().replace(tzinfo=None)
     await db.commit()
@@ -866,6 +922,8 @@ async def validate_token(request: Request, payload: dict, db: AsyncSession = Dep
         "scopes": scopes,
         "max_concurrent": user.max_concurrent_bots,
         "email": user.email,
+        "role": user.role or "free",
+        "status": user.status or "approved",
     }
 
     # Include webhook config if present (gateway injects as X-User-Webhook-* headers)
@@ -941,11 +999,134 @@ async def backfill_token_scopes():
         logger.info(f"Token backfill: migrated {updated} tokens to valid scopes.")
 
 
+# --- Audit Log Query ---
+
+@analytics_router.get(
+    "/audit-logs",
+    summary="Query audit logs with filters and pagination",
+)
+async def get_audit_logs(
+    user_id: Optional[int] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    from admin_models.models import AuditLog
+
+    query = select(AuditLog)
+    count_query = select(func.count(AuditLog.id))
+
+    if user_id is not None:
+        query = query.where(AuditLog.user_id == user_id)
+        count_query = count_query.where(AuditLog.user_id == user_id)
+    if action:
+        escaped = action.replace("%", "\\%").replace("_", "\\_")
+        query = query.where(AuditLog.action.ilike(f"%{escaped}%", escape="\\"))
+        count_query = count_query.where(AuditLog.action.ilike(f"%{escaped}%", escape="\\"))
+    if resource_type:
+        query = query.where(AuditLog.resource_type == resource_type)
+        count_query = count_query.where(AuditLog.resource_type == resource_type)
+    if date_from:
+        query = query.where(AuditLog.timestamp >= date_from)
+        count_query = count_query.where(AuditLog.timestamp >= date_from)
+    if date_to:
+        query = query.where(AuditLog.timestamp <= date_to)
+        count_query = count_query.where(AuditLog.timestamp <= date_to)
+
+    total = (await db.execute(count_query)).scalar_one()
+    result = await db.execute(
+        query.order_by(AuditLog.timestamp.desc()).offset(skip).limit(limit)
+    )
+    items = result.scalars().all()
+
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": i.id,
+                "timestamp": i.timestamp.isoformat() if i.timestamp else None,
+                "user_id": i.user_id,
+                "action": i.action,
+                "resource_type": i.resource_type,
+                "resource_id": i.resource_id,
+                "ip_address": i.ip_address,
+                "user_agent": i.user_agent,
+                "status_code": i.status_code,
+                "details": i.details or {},
+            }
+            for i in items
+        ],
+        "skip": skip,
+        "limit": limit,
+    }
+
+
+async def seed_admin_users():
+    """Ensure admin emails exist with admin role and approved status."""
+    if not ADMIN_EMAILS:
+        return
+    async with AsyncSession(admin_engine) as session:
+        for email in ADMIN_EMAILS:
+            result = await session.execute(select(User).where(User.email == email))
+            user = result.scalars().first()
+            if not user:
+                user = User(
+                    email=email,
+                    name=email.split("@")[0],
+                    max_concurrent_bots=10,
+                    role="admin",
+                    status="approved",
+                )
+                session.add(user)
+                logger.info(f"Seeded admin user: {email}")
+            elif user.role != "admin" or user.status != "approved":
+                user.role = "admin"
+                user.status = "approved"
+                if user.max_concurrent_bots < 10:
+                    user.max_concurrent_bots = 10
+                logger.info(f"Upgraded existing user to admin: {email}")
+        await session.commit()
+
+
+async def migrate_user_role_status():
+    """Add role and status columns if they don't exist (idempotent)."""
+    from sqlalchemy import text as sa_text
+    async with admin_engine.begin() as conn:
+        # Check if columns exist
+        result = await conn.execute(sa_text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='users' AND column_name IN ('role', 'status')"
+        ))
+        existing = {row[0] for row in result}
+        if 'role' not in existing:
+            await conn.execute(sa_text(
+                "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'free'"
+            ))
+            logger.info("Added 'role' column to users table")
+        if 'status' not in existing:
+            await conn.execute(sa_text(
+                "ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+            ))
+            logger.info("Added 'status' column to users table")
+        # Approve existing users who had tokens before the approval system was added
+        await conn.execute(sa_text(
+            "UPDATE users SET status = 'approved' "
+            "WHERE status = 'pending' AND id IN (SELECT DISTINCT user_id FROM api_tokens)"
+        ))
+        logger.info("User role/status migration complete")
+
+
 # App events
 @app.on_event("startup")
 async def startup_event():
     logger.info("Admin API starting up — running schema sync.")
     await init_db()
+    await migrate_user_role_status()
+    await seed_admin_users()
     await backfill_token_scopes()
 
 # Include the routers

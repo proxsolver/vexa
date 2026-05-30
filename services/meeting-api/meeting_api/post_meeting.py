@@ -333,6 +333,17 @@ async def run_all_tasks(meeting_id: int):
     except Exception as e:
         logger.error(f"Transcription aggregation failed for meeting {meeting_id}: {e}", exc_info=True)
 
+    # Task 1.5: Generate AI summary (after aggregation, before webhooks)
+    try:
+        from .ai_summary import generate_ai_summary
+        async with async_session_local() as db:
+            meeting = await db.get(Meeting, meeting_id)
+            if meeting:
+                await generate_ai_summary(meeting, db)
+                await db.commit()
+    except Exception as e:
+        logger.error(f"AI summary generation failed for meeting {meeting_id}: {e}", exc_info=True)
+
     # Task 2: Send completion webhook to user (makes HTTP call to user's endpoint)
     try:
         async with async_session_local() as db:

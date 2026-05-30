@@ -898,6 +898,30 @@ async def bot_status_change_callback(
             and rotation.get("pending_handoff")
             and meeting.status == MeetingStatus.ACTIVE.value
         ):
+            # Determine if this is the OLD bot or the NEW bot failing.
+            # The new bot's session_uid is NOT the outgoing_session_uid.
+            # The old bot (outgoing) sending FAILED during handoff is also
+            # protected — the new bot should take over.
+            outgoing_session_uid = rotation.get("outgoing_session_uid")
+
+            if outgoing_session_uid and payload.connection_id == outgoing_session_uid:
+                # Old bot failed during handoff — new bot should be joining.
+                # Don't fail the meeting; let the new bot complete the handoff.
+                logger.warning(
+                    f"[rotation] OLD bot FAILED for meeting {meeting.id} during handoff "
+                    f"(outgoing session={outgoing_session_uid}). "
+                    f"New bot should be joining — not failing meeting."
+                )
+                # Clear outgoing state but keep pending_handoff so exit_callback
+                # can still detect the new bot's eventual exit.
+                rotation["outgoing_container_id"] = None
+                rotation["outgoing_session_uid"] = None
+                meeting_data["rotation"] = rotation
+                meeting.data = meeting_data
+                attributes.flag_modified(meeting, "data")
+                await db.commit()
+                return {"status": "rotation_old_bot_failed", "meeting_id": meeting.id}
+
             # The new (replacement) bot failed to join. Clear handoff state
             # and let the outgoing bot keep running. Increment failure count.
             consecutive = rotation.get("consecutive_failures", 0) + 1
@@ -929,6 +953,20 @@ async def bot_status_change_callback(
             failure_stage=payload.failure_stage,
             error_details=str(payload.error_details) if payload.error_details else None,
         )
+        if success and rotation.get("pending_handoff"):
+            logger.warning(
+                f"[rotation] Meeting {meeting.id} went FAILED despite rotation pending_handoff. "
+                f"Clearing handoff state."
+            )
+            meeting_data = dict(meeting.data or {})
+            rot = meeting_data.get("rotation", {})
+            rot["pending_handoff"] = False
+            rot["outgoing_container_id"] = None
+            rot["outgoing_session_uid"] = None
+            meeting_data["rotation"] = rot
+            meeting.data = meeting_data
+            attributes.flag_modified(meeting, "data")
+            await db.flush()
         if success:
             meeting.end_time = datetime.utcnow()
             if payload.error_details or payload.platform_specific_error:

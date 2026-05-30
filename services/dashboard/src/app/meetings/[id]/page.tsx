@@ -685,7 +685,7 @@ export default function MeetingDetailPage() {
     }
 
     // Always refresh transcript/recording artifacts when entering post-meeting flow.
-    if ((meetingStatus === "stopping" || meetingStatus === "completed") && meetingPlatform && meetingNativeId) {
+    if ((meetingStatus === "stopping" || meetingStatus === "completed" || meetingStatus === "failed") && meetingPlatform && meetingNativeId) {
       fetchTranscripts(meetingPlatform, meetingNativeId, meetingNumericId);
       fetchChatMessages(meetingPlatform, meetingNativeId);
       return;
@@ -838,7 +838,7 @@ export default function MeetingDetailPage() {
       : null;
   const isPostMeetingFlow =
     forcePostMeetingMode ||
-    currentMeeting.status === "stopping" || currentMeeting.status === "completed";
+    currentMeeting.status === "stopping" || currentMeeting.status === "completed" || currentMeeting.status === "failed";
   const hasRecordingEntries = recordings.length > 0;
   const noAudioRecordingForMeeting =
     (currentMeeting.data?.recording_enabled === false && !hasRecordingAudio) ||

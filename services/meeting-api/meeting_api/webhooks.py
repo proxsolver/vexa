@@ -116,7 +116,10 @@ async def send_completion_webhook(meeting: Meeting, db: AsyncSession):
         except ValueError:
             return
 
-        payload = build_envelope("meeting.completed", {"meeting": _build_meeting_event_data(meeting)})
+        payload = build_envelope("meeting.completed", {
+            "meeting": _build_meeting_event_data(meeting),
+            "ai_summary": (meeting.data or {}).get("ai_summary"),
+        })
         now = datetime.now(timezone.utc).isoformat()
 
         resp = await deliver(

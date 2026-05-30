@@ -250,11 +250,11 @@ export async function joinZoomWebMeeting(page: Page | null, botConfig: BotConfig
   if (!isVoiceAgent) {
     try {
       const muteBtn = page.locator(zoomPreviewMuteSelector);
-      const muteAriaLabel = await muteBtn.getAttribute('aria-label');
-      // "Mute" means currently unmuted → click to mute. "Unmute" means already muted → skip.
-      if (muteAriaLabel === 'Mute') {
+      const muteAriaLabel = (await muteBtn.getAttribute('aria-label') || '').toLowerCase();
+      const isCurrentlyUnmuted = muteAriaLabel.includes('mute') && !muteAriaLabel.includes('unmute');
+      if (isCurrentlyUnmuted) {
         await muteBtn.click();
-        log('[Zoom Web] Muted microphone in preview (recorder bot — receive-only audio)');
+        log(`[Zoom Web] Muted microphone in preview (aria-label was "${muteAriaLabel}")`);
       }
     } catch {
       log('[Zoom Web] Could not toggle preview mic (may already be muted)');

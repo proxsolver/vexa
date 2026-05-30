@@ -1,0 +1,98 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img "Lexor Logo" [ref=e6]
+          - generic [ref=e7]: Lexor
+        - button "Sign in" [ref=e8]
+    - generic [ref=e11]:
+      - generic [ref=e12]: AI-Powered Meeting Intelligence
+      - heading "Never miss a word from your meetings" [level=1] [ref=e14]:
+        - text: Never miss a word
+        - text: from your meetings
+      - paragraph [ref=e15]: Lexor automatically joins your meetings, transcribes conversations in real-time, and generates AI-powered summaries so you can focus on the discussion — not the notes.
+      - button "Get Started with Google" [ref=e17]:
+        - img
+        - text: Get Started with Google
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - img "Google Meet" [ref=e20]
+          - generic [ref=e21]: Google Meet
+        - generic [ref=e22]:
+          - img "Zoom" [ref=e23]
+          - generic [ref=e24]: Zoom
+        - generic [ref=e25]:
+          - img "Microsoft Teams" [ref=e26]
+          - generic [ref=e27]: Microsoft Teams
+    - generic [ref=e29]:
+      - heading "How it works" [level=2] [ref=e30]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: "1"
+          - heading "Connect your calendar" [level=3] [ref=e34]
+          - paragraph [ref=e35]: Sign in with Google and link your calendar. Lexor sees your upcoming meetings.
+        - generic [ref=e36]:
+          - generic [ref=e37]: "2"
+          - heading "Bot joins automatically" [level=3] [ref=e38]
+          - paragraph [ref=e39]: Lexor's bot joins your meeting as a visible participant and starts transcribing.
+        - generic [ref=e40]:
+          - generic [ref=e41]: "3"
+          - heading "Get AI summaries" [level=3] [ref=e42]
+          - paragraph [ref=e43]: After the meeting, receive a full transcript, summary, and action items instantly.
+    - generic [ref=e45]:
+      - heading "Everything you need for smarter meetings" [level=2] [ref=e46]
+      - paragraph [ref=e47]: Built for teams that value clarity and accountability.
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - img [ref=e51]
+          - heading "Real-time Transcription" [level=3] [ref=e54]
+          - paragraph [ref=e55]: AI-powered transcription captures every word as it's spoken, with speaker identification.
+        - generic [ref=e56]:
+          - img [ref=e58]
+          - heading "AI Meeting Summaries" [level=3] [ref=e61]
+          - paragraph [ref=e62]: Automatic summaries with key takeaways, action items, and decisions after every meeting.
+        - generic [ref=e63]:
+          - img [ref=e65]
+          - heading "Multi-Platform Support" [level=3] [ref=e70]
+          - paragraph [ref=e71]: Works with Google Meet, Zoom, and Microsoft Teams. One tool for all your meetings.
+        - generic [ref=e72]:
+          - img [ref=e74]
+          - heading "50+ Languages" [level=3] [ref=e77]
+          - paragraph [ref=e78]: Automatic language detection and real-time transcription in over 50 languages.
+        - generic [ref=e79]:
+          - img [ref=e81]
+          - heading "Enterprise Security" [level=3] [ref=e83]
+          - paragraph [ref=e84]: Data encryption, audit logging, and role-based access control built-in from day one.
+        - generic [ref=e85]:
+          - img [ref=e87]
+          - heading "API-First Design" [level=3] [ref=e89]
+          - paragraph [ref=e90]: Full REST API and MCP integration. Automate workflows and build custom solutions.
+    - generic [ref=e93]:
+      - generic [ref=e94]:
+        - generic [ref=e95]: 50+
+        - generic [ref=e96]: Languages Supported
+      - generic [ref=e97]:
+        - generic [ref=e98]: <2s
+        - generic [ref=e99]: Transcription Latency
+      - generic [ref=e100]:
+        - generic [ref=e101]: 99.9%
+        - generic [ref=e102]: Service Uptime
+    - generic [ref=e104]:
+      - heading "Start transcribing your meetings" [level=2] [ref=e105]
+      - paragraph [ref=e106]: Free to get started. Sign in with your Google account and connect your first meeting in under a minute.
+      - button "Sign in with Google" [ref=e107]:
+        - text: Sign in with Google
+        - img
+      - generic [ref=e108]:
+        - generic [ref=e109]:
+          - img [ref=e110]
+          - text: No credit card required
+        - generic [ref=e113]:
+          - img [ref=e114]
+          - text: Setup in 60 seconds
+    - contentinfo [ref=e117]:
+      - generic [ref=e119]:
+        - img "Lexor Logo" [ref=e121]
+        - generic [ref=e122]: © 2026 Lexor. All rights reserved.
+  - alert [ref=e123]

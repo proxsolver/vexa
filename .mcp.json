@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "web-reader": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-web-reader"],
+      "description": "Fetch and convert web pages to markdown for research"
+    }
+  }
+}

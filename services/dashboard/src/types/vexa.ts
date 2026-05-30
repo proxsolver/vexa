@@ -489,6 +489,8 @@ export interface VexaUser {
   max_concurrent_bots: number;
   data?: Record<string, unknown>;
   created_at: string;
+  role: "admin" | "free" | "paid";
+  status: "pending" | "approved" | "rejected";
 }
 
 export interface VexaUserWithTokens extends VexaUser {
@@ -527,4 +529,21 @@ export interface CreateTokenResponse {
   token: string; // Save immediately - cannot be retrieved later!
   user_id: string;
   created_at: string;
+}
+
+// ==========================================
+// Audit Log Types
+// ==========================================
+
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  user_id: number | null;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  status_code: number | null;
+  details: Record<string, unknown>;
 }

@@ -36,14 +36,19 @@ export class VideoRecordingService {
   private display: string;
   private hwaccel: VideoHwAccel;
   private encodeH264: boolean;
+  private audioDevice: string | null;
+  private hasInlineAudio: boolean;
 
   constructor(
     private meetingId: number,
     private sessionUid: string,
+    audioDevice?: string,
   ) {
     this.display = process.env.DISPLAY || ':99';
     this.hwaccel = (process.env.VIDEO_HWACCEL || 'none').toLowerCase() as VideoHwAccel;
     this.encodeH264 = process.env.ENCODE_H264 === 'true';
+    this.audioDevice = audioDevice || null;
+    this.hasInlineAudio = !!this.audioDevice;
     this.format = (this.hwaccel === 'none' && !this.encodeH264) ? 'webm' : 'mp4';
     this.filePath = path.join('/tmp', `video_recording_${meetingId}_${sessionUid}.${this.format}`);
   }
@@ -143,6 +148,7 @@ export class VideoRecordingService {
       format: this.format,
       duration_seconds: durationSeconds,
       file_size_bytes: fileStats.size,
+      has_audio: this.hasInlineAudio,
       start_time_utc: this.startTime ? new Date(this.startTime).toISOString() : undefined,
     });
 
@@ -212,6 +218,10 @@ export class VideoRecordingService {
     }
     if (!fs.existsSync(audioPath)) {
       log(`[VideoRecording] Audio file not found for muxing: ${audioPath}`);
+      return;
+    }
+    if (this.hasInlineAudio) {
+      log(`[VideoRecording] Video already contains inline audio — skipping mux`);
       return;
     }
 
@@ -350,12 +360,31 @@ export class VideoRecordingService {
       '-i', this.display,
     ];
 
+    // PulseAudio audio input for inline capture (Zoom Web)
+    const audioInputArgs: string[] = [];
+    const audioEncoderArgs: string[] = [];
+    if (this.audioDevice) {
+      audioInputArgs.push(
+        '-f', 'pulse',
+        '-ac', '1',
+        '-ar', '16000',
+        '-i', `${this.audioDevice}.monitor`,
+      );
+      // Audio codec depends on container format
+      if (this.format === 'webm') {
+        audioEncoderArgs.push('-c:a', 'libopus', '-b:a', '32k');
+      } else {
+        audioEncoderArgs.push('-c:a', 'aac', '-b:a', '48k');
+      }
+    }
+
     return [
       '-y',         // overwrite output file if exists
       ...preInputArgs,
       ...inputArgs,
+      ...audioInputArgs,
       ...encoderArgs,
-      '-an',        // no audio (audio is muxed in after recording stops)
+      ...(this.audioDevice ? audioEncoderArgs : ['-an']),
       outputFile,
     ];
   }

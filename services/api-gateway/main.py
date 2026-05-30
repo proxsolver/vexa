@@ -271,6 +271,7 @@ async def startup_event():
         health_check_interval=30,
         retry_on_timeout=True,
     )
+    await init_audit_db()
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -279,8 +280,106 @@ async def shutdown_event():
         await app.state.redis.close()
     except Exception:
         pass
+    await close_audit_db()
 
 logger = logging.getLogger("api_gateway")
+
+
+# ---------------------------------------------------------------------------
+# Audit logging
+# ---------------------------------------------------------------------------
+import asyncio as _asyncio
+from audit import init_audit_db, close_audit_db, write_audit_log as _write_audit
+
+AUDIT_SKIP_PATHS = {"/", "/docs", "/openapi.json", "/redoc", "/health", "/readyz"}
+AUDIT_SKIP_PREFIXES = (
+    "/bots/status",
+    "/public/",
+    "/ws",
+    "/b/",
+    "/auth/me",
+)
+# Map path prefixes to (action_template, resource_type)
+AUDIT_ACTION_MAP = [
+    ("POST", "/bots", "create_bot", "meeting"),
+    ("DELETE", "/bots/", "stop_bot", "meeting"),
+    ("GET", "/bots/id/", "view_meeting", "meeting"),
+    ("GET", "/bots", "list_meetings", "meeting"),
+    ("PUT", "/bots/", "update_bot_config", "meeting"),
+    ("GET", "/transcripts/", "view_transcript", "transcript"),
+    ("GET", "/recordings/", "view_recording", "recording"),
+    ("GET", "/meetings/", "view_meeting", "meeting"),
+    ("POST", "/meetings/", "meeting_action", "meeting"),
+    ("POST", "/admin/users", "admin_create_user", "user"),
+    ("GET", "/admin/users", "admin_list_users", "user"),
+    ("PATCH", "/admin/users/", "admin_update_user", "user"),
+    ("POST", "/admin/users/", "admin_create_token", "token"),
+    ("DELETE", "/admin/tokens/", "admin_delete_token", "token"),
+    ("GET", "/admin/analytics", "admin_view_analytics", "analytics"),
+    ("GET", "/admin/audit-logs", None, None),
+    ("POST", "/auth/", "auth_action", "auth"),
+    ("GET", "/recording-config", "view_recording_config", "config"),
+    ("PUT", "/recording-config", "update_recording_config", "config"),
+]
+
+
+def _resolve_audit_action(method: str, path: str):
+    for m, prefix, action, rtype in AUDIT_ACTION_MAP:
+        if m == method and path.startswith(prefix) and action is None:
+            return None, None, {}, None
+        if m == method and path.startswith(prefix):
+            parts = path[len(prefix):].strip("/").split("/")
+            rid = parts[0] if parts else None
+            details = {}
+            if "/" in path[len(prefix):]:
+                details["subpath"] = "/".join(parts[1:])
+            return action, rtype, details, rid
+    return f"{method} {path}", "unknown", {}, None
+
+
+@app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    # Ensure state is clean for this request
+    request.state.user_id = None
+
+    response = await call_next(request)
+
+    try:
+        path = request.url.path
+        method = request.method
+
+        if path in AUDIT_SKIP_PATHS:
+            return response
+        if any(path.startswith(p) for p in AUDIT_SKIP_PREFIXES):
+            return response
+
+        user_id = getattr(request.state, "user_id", None)
+        if not user_id:
+            return response
+
+        action, rtype, details, rid = _resolve_audit_action(method, path)
+        if not action:
+            return response
+
+        ip = request.client.host if request.client else None
+        ua = request.headers.get("user-agent")
+
+        _asyncio.create_task(
+            _write_audit(
+                user_id=user_id,
+                action=action,
+                resource_type=rtype,
+                resource_id=rid,
+                ip_address=ip,
+                user_agent=ua,
+                status_code=response.status_code,
+                details=details,
+            )
+        )
+    except Exception:
+        logger.warning("Audit middleware error", exc_info=True)
+
+    return response
 
 
 # --- Helper for Forwarding ---
@@ -330,6 +429,7 @@ async def forward_request(client: httpx.AsyncClient, method: str, url: str, requ
                 headers["x-user-id"] = str(user_data["user_id"])
                 headers["x-user-scopes"] = ",".join(user_scopes)
                 headers["x-user-limits"] = str(user_data.get("max_concurrent", 1))
+                request.state.user_id = user_data["user_id"]
 
                 # Inject webhook config headers (meeting-api stores in meeting.data)
                 wh_url = user_data.get("webhook_url")
@@ -512,6 +612,26 @@ async def get_bot_by_id_proxy(meeting_id: int, request: Request):
     url = f"{MEETING_API_URL}/bots/id/{meeting_id}"
     return await forward_request(app.state.http_client, "GET", url, request)
 
+# --- AI Summary Routes (proxy to Meeting API) ---
+
+@app.get("/meetings/{meeting_id}/summary",
+         tags=["AI Summary"],
+         summary="Get AI-generated meeting summary",
+         dependencies=[Depends(api_key_scheme)])
+async def get_meeting_summary_proxy(meeting_id: int, request: Request):
+    """Forward to meeting-api GET /meetings/{meeting_id}/summary."""
+    url = f"{MEETING_API_URL}/meetings/{meeting_id}/summary"
+    return await forward_request(app.state.http_client, "GET", url, request)
+
+@app.post("/meetings/{meeting_id}/summary",
+          tags=["AI Summary"],
+          summary="Generate AI summary on-demand",
+          dependencies=[Depends(api_key_scheme)])
+async def generate_meeting_summary_proxy(meeting_id: int, request: Request):
+    """Forward to meeting-api POST /meetings/{meeting_id}/summary."""
+    url = f"{MEETING_API_URL}/meetings/{meeting_id}/summary"
+    return await forward_request(app.state.http_client, "POST", url, request)
+
 # --- Voice Agent Interaction Routes (proxy to Bot Manager) ---
 
 @app.post("/bots/{platform}/{native_meeting_id}/speak",
@@ -635,15 +755,19 @@ async def avatar_reset_proxy(platform: Platform, native_meeting_id: str, request
 # --- Calendar Routes (proxy to Calendar Service) ---
 
 
-def _verify_calendar_user_id(request: Request):
+async def _verify_calendar_user_id(request: Request):
     """IDOR guard: ensure user_id query param matches the authenticated user."""
-    from urllib.parse import urlparse, parse_qs
-    user_id_header = request.headers.get("x-user-id", "")
-    if not user_id_header:
+    from urllib.parse import parse_qs
+    api_key = request.headers.get("x-api-key", "")
+    if not api_key:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    user_data = await _resolve_token(app.state.http_client, api_key)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    resolved_uid = str(user_data["user_id"])
     qs = parse_qs(str(request.url.query))
     requested_uid = qs.get("user_id", [None])[0]
-    if requested_uid and str(requested_uid) != str(user_id_header):
+    if requested_uid and str(requested_uid) != resolved_uid:
         raise HTTPException(status_code=403, detail="user_id does not match authenticated user")
 
 @app.post("/calendar/connect",
@@ -653,7 +777,7 @@ def _verify_calendar_user_id(request: Request):
 async def calendar_connect_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
-    _verify_calendar_user_id(request)
+    await _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/connect"
     return await forward_request(app.state.http_client, "POST", url, request)
 
@@ -664,7 +788,7 @@ async def calendar_connect_proxy(request: Request):
 async def calendar_status_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
-    _verify_calendar_user_id(request)
+    await _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/status"
     return await forward_request(app.state.http_client, "GET", url, request)
 
@@ -675,7 +799,7 @@ async def calendar_status_proxy(request: Request):
 async def calendar_disconnect_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
-    _verify_calendar_user_id(request)
+    await _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/disconnect"
     return await forward_request(app.state.http_client, "DELETE", url, request)
 
@@ -686,7 +810,7 @@ async def calendar_disconnect_proxy(request: Request):
 async def calendar_events_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
-    _verify_calendar_user_id(request)
+    await _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/events"
     return await forward_request(app.state.http_client, "GET", url, request)
 
@@ -697,7 +821,7 @@ async def calendar_events_proxy(request: Request):
 async def calendar_preferences_proxy(request: Request):
     if not CALENDAR_SERVICE_URL:
         raise HTTPException(status_code=501, detail="Calendar service not configured")
-    _verify_calendar_user_id(request)
+    await _verify_calendar_user_id(request)
     url = f"{CALENDAR_SERVICE_URL}/calendar/preferences"
     return await forward_request(app.state.http_client, "PUT", url, request)
 
@@ -1522,6 +1646,8 @@ async def auth_me(request: Request):
         "email": user_data.get("email", ""),
         "scopes": user_data.get("scopes", []),
         "max_concurrent": user_data.get("max_concurrent", 1),
+        "role": user_data.get("role", "free"),
+        "status": user_data.get("status", "approved"),
     }
 
 

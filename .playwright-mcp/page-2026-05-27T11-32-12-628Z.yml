@@ -1,0 +1,70 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "Lexor Logo Lexor" [ref=e6] [cursor=pointer]:
+            - /url: /
+            - img "Lexor Logo" [ref=e8]
+            - generic [ref=e9]: Lexor
+          - link "dev" [ref=e10] [cursor=pointer]:
+            - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+            - generic [ref=e11]: dev
+        - generic [ref=e12]:
+          - link "Full Documentation" [ref=e13] [cursor=pointer]:
+            - /url: https://docs.vexa.ai/
+            - img
+            - generic [ref=e14]: Full Documentation
+          - button "Toggle theme" [ref=e15]:
+            - img
+            - generic [ref=e16]: Toggle theme
+          - button "User menu" [ref=e17]:
+            - img
+            - generic [ref=e18]: User menu
+    - generic [ref=e19]:
+      - complementary [ref=e20]:
+        - navigation [ref=e25]:
+          - link "Meetings" [ref=e26] [cursor=pointer]:
+            - /url: /meetings
+            - img [ref=e27]
+            - text: Meetings
+          - button "Join Meeting" [ref=e30]:
+            - img [ref=e31]
+            - text: Join Meeting
+          - generic [ref=e32]:
+            - link "Calendar" [ref=e33] [cursor=pointer]:
+              - /url: /calendar
+              - img [ref=e34]
+              - text: Calendar
+            - link "Webhooks" [ref=e36] [cursor=pointer]:
+              - /url: /webhooks
+              - img [ref=e37]
+              - text: Webhooks
+            - link "MCP MCP Setup" [ref=e41] [cursor=pointer]:
+              - /url: /mcp
+              - img "MCP" [ref=e43]
+              - text: MCP Setup
+            - link "Profile" [ref=e44] [cursor=pointer]:
+              - /url: /profile
+              - img [ref=e45]
+              - text: Profile
+      - main [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - heading "Google Calendar" [level=1] [ref=e52]
+            - paragraph [ref=e53]: Auto-join meetings and record transcripts from your calendar
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - generic [ref=e57]:
+                - img [ref=e58]
+                - text: Connection
+              - generic [ref=e60]: Connect your Google Calendar to automatically detect upcoming meetings with video call links.
+            - generic [ref=e62]:
+              - img [ref=e64]
+              - heading "No Calendar Connected" [level=3] [ref=e66]
+              - paragraph [ref=e67]: Connect Google Calendar to auto-detect meetings and schedule bots to join and transcribe them.
+              - button "Connect Google Calendar" [ref=e68]:
+                - img
+                - text: Connect Google Calendar
+    - region "Notifications alt+T"
+  - alert [ref=e69]

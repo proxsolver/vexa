@@ -1,0 +1,90 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Lexor" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e9]: Lexor
+        - link "dev" [ref=e10] [cursor=pointer]:
+          - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+          - generic [ref=e11]: dev
+      - generic [ref=e12]:
+        - link "Full Documentation" [ref=e13] [cursor=pointer]:
+          - /url: https://docs.vexa.ai/
+          - img
+          - generic [ref=e14]: Full Documentation
+        - button "Toggle theme" [ref=e15]:
+          - img
+          - generic [ref=e16]: Toggle theme
+        - button "User menu" [ref=e17]:
+          - img
+          - generic [ref=e18]: User menu
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - navigation [ref=e25]:
+        - link "Meetings" [ref=e26] [cursor=pointer]:
+          - /url: /meetings
+          - img [ref=e27]
+          - text: Meetings
+        - button "Join Meeting" [ref=e30]:
+          - img [ref=e31]
+          - text: Join Meeting
+        - generic [ref=e32]:
+          - link "Calendar" [ref=e33] [cursor=pointer]:
+            - /url: /calendar
+            - img [ref=e34]
+            - text: Calendar
+          - link "Webhooks" [ref=e36] [cursor=pointer]:
+            - /url: /webhooks
+            - img [ref=e37]
+            - text: Webhooks
+          - link "MCP MCP Setup" [ref=e41] [cursor=pointer]:
+            - /url: /mcp
+            - img "MCP" [ref=e43]
+            - text: MCP Setup
+          - link "Profile" [ref=e44] [cursor=pointer]:
+            - /url: /profile
+            - img [ref=e45]
+            - text: Profile
+    - main [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - heading "Meetings" [level=1] [ref=e55]
+              - paragraph [ref=e56]: Browse and search your meeting transcriptions
+            - generic [ref=e57]:
+              - button [ref=e58]:
+                - img
+              - button "Join Meeting" [ref=e60]:
+                - img
+                - generic [ref=e61]: Join Meeting
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - img [ref=e64]
+              - textbox "Search meetings..." [ref=e67]
+            - generic [ref=e68]:
+              - combobox [ref=e69]:
+                - img
+              - combobox [ref=e70]
+              - combobox [ref=e71]:
+                - img
+              - combobox [ref=e72]
+        - table [ref=e75]:
+          - rowgroup [ref=e76]:
+            - row "Platform Meeting Status Duration Time" [ref=e77]:
+              - columnheader "Platform" [ref=e78]
+              - columnheader "Meeting" [ref=e79]
+              - columnheader "Status" [ref=e80]
+              - columnheader "Duration" [ref=e81]
+              - columnheader "Time" [ref=e82]
+          - rowgroup [ref=e83]:
+            - row "No meetings yet Join your first meeting" [ref=e84]:
+              - cell "No meetings yet Join your first meeting" [ref=e85]:
+                - generic [ref=e86]:
+                  - img [ref=e87]
+                  - paragraph [ref=e90]: No meetings yet
+                  - button "Join your first meeting" [ref=e91]:
+                    - img
+                    - text: Join your first meeting
+  - region "Notifications alt+T"

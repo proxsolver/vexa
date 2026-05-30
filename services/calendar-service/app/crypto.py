@@ -1,12 +1,15 @@
-"""AES-256-GCM encryption/decryption for OAuth tokens."""
+"""AES-256-GCM encryption/decryption for OAuth tokens.
+
+Wire format (matches Node.js dashboard): base64(iv(12) + tag(16) + ciphertext)
+"""
 
 import os
 import base64
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-_ALGORITHM = "aes-256-gcm"
 _IV_LENGTH = 12
+_TAG_LENGTH = 16
 
 
 def _get_key() -> bytes:
@@ -20,14 +23,19 @@ def encrypt(plaintext: str) -> str:
     key = _get_key()
     iv = os.urandom(_IV_LENGTH)
     aesgcm = AESGCM(key)
-    ciphertext = aesgcm.encrypt(iv, plaintext.encode("utf-8"), None)
-    return base64.b64encode(iv + ciphertext).decode("ascii")
+    ct_with_tag = aesgcm.encrypt(iv, plaintext.encode("utf-8"), None)
+    # ct_with_tag = ciphertext + tag(16); produce iv + tag + ciphertext
+    ct = ct_with_tag[:-_TAG_LENGTH]
+    tag = ct_with_tag[-_TAG_LENGTH:]
+    return base64.b64encode(iv + tag + ct).decode("ascii")
 
 
 def decrypt(ciphertext: str) -> str:
     raw = base64.b64decode(ciphertext)
     iv = raw[:_IV_LENGTH]
-    data = raw[_IV_LENGTH:]
+    tag = raw[_IV_LENGTH : _IV_LENGTH + _TAG_LENGTH]
+    ct = raw[_IV_LENGTH + _TAG_LENGTH :]
+    # AESGCM.decrypt expects ciphertext + tag concatenated
     key = _get_key()
     aesgcm = AESGCM(key)
-    return aesgcm.decrypt(iv, data, None).decode("utf-8")
+    return aesgcm.decrypt(iv, ct + tag, None).decode("utf-8")

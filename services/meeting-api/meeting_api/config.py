@@ -48,3 +48,10 @@ POST_MEETING_HOOKS = [
 # Recording metadata mode
 def get_recording_metadata_mode() -> str:
     return os.getenv("RECORDING_METADATA_MODE", "meeting_data").strip().lower()
+
+# AI Summary — Groq LLM integration
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+AI_SUMMARY_ENABLED = os.getenv("AI_SUMMARY_ENABLED", "false").lower() == "true"
+AI_SUMMARY_MAX_TRANSCRIPT_CHARS = int(os.getenv("AI_SUMMARY_MAX_TRANSCRIPT_CHARS", "30000"))

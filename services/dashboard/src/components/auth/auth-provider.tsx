@@ -7,7 +7,7 @@ import { savePendingMeetingUrl } from "@/lib/pending-meeting";
 import { Loader2 } from "lucide-react";
 
 // Routes that don't require authentication
-const publicRoutes = ["/login", "/auth/verify", "/auth/zoom/callback"];
+const publicRoutes = ["/", "/auth/verify", "/auth/zoom/callback", "/auth/pending"];
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -49,6 +49,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!isLoading && !isAuthenticated && !isPublicRoute) {
       setShouldRedirect(true);
     }
+    // Redirect unapproved users to pending page
+    if (!isLoading && isAuthenticated) {
+      const { user } = useAuthStore.getState();
+      if (user?.status === "pending" || user?.status === "rejected") {
+        if (!pathname?.startsWith("/auth/pending")) {
+          router.push("/auth/pending");
+        }
+      }
+    }
   }, [isLoading, isAuthenticated, isPublicRoute]);
 
   useEffect(() => {
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         window.location.href = `${externalAuthUrl}?returnUrl=${returnUrl}`;
       } else if (!didLogout) {
         // Self-hosted: show dashboard login
-        router.push("/login");
+        router.push("/");
       }
       // If didLogout: logout() already handles the redirect — do nothing here
     }

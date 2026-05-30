@@ -102,13 +102,20 @@ export function startVideoRecordingIfNeeded(): void {
   const isZoomNative = currentBotConfig.platform === 'zoom'
     && process.env.ZOOM_SDK === 'true'
     && process.env.ZOOM_WEB !== 'true';
+  const isZoomWeb = currentBotConfig.platform === 'zoom' && !isZoomNative;
 
   if (wantsVideoCapture && !isZoomNative) {
     try {
       const sessionUid = currentBotConfig.connectionId || `video-${Date.now()}`;
-      activeVideoRecordingService = new VideoRecordingService(currentBotConfig.meeting_id, sessionUid);
+      // Zoom Web: capture PulseAudio audio inline so the video file contains
+      // both streams. Other platforms (GMeet, Teams) capture audio via
+      // MediaRecorder in the browser and mux in the graceful-leave path.
+      const audioDevice = isZoomWeb
+        ? (process.env.PULSE_SINK || `bot_sink_${currentBotConfig.meeting_id}`)
+        : undefined;
+      activeVideoRecordingService = new VideoRecordingService(currentBotConfig.meeting_id, sessionUid, audioDevice);
       activeVideoRecordingService.start();
-      log('[VideoRecording] Screen capture started (post-admission)');
+      log(`[VideoRecording] Screen capture started (post-admission, inline_audio=${!!audioDevice})`);
     } catch (err: any) {
       log(`[VideoRecording] Failed to start (non-fatal): ${err.message}`);
       activeVideoRecordingService = null;

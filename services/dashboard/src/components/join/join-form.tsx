@@ -149,7 +149,7 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
         try {
           toast.info("Zoom authentication required", {
             description:
-              "Redirecting to Zoom. Sign in with the Zoom account that owns or is allowed to use the Vexa app to avoid \"Application not found\".",
+              "Redirecting to Zoom. Sign in with the Zoom account that owns or is allowed to use the Lexor app to avoid \"Application not found\".",
           });
           await startZoomOAuth({
             userEmail: user.email,

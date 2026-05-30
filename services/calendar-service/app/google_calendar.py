@@ -73,6 +73,7 @@ MEETING_URL_PATTERNS = [
     re.compile(r"https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}"),
     re.compile(r"https://[\w.-]*zoom\.us/j/\d+(\?pwd=\w+)?"),
     re.compile(r"https://teams\.microsoft\.com/l/meetup-join/[^\s\"<>]+"),
+    re.compile(r"https://teams\.microsoft\.com/meet/[^\s\"<>]+"),
 ]
 
 

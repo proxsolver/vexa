@@ -10,7 +10,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { NotificationBanner } from "@/components/notifications/notification-banner";
 
 // Routes that don't need the full app layout
-const publicRoutes = ["/login", "/auth", "/docs"];
+const publicRoutes = ["/", "/auth", "/docs"];
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -21,7 +21,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
 
   // Check if current route is public (shouldn't have sidebar/header)
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some((route) =>
+    route === "/" ? pathname === "/" : pathname.startsWith(route)
+  );
 
   // For public routes, just render children without the app shell
   if (isPublicRoute) {

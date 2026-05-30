@@ -98,37 +98,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Check if admin session is valid
+// Check if admin session is valid.
+// Falls back to vexa-token: if user has admin role, auto-establishes a session.
 export async function GET() {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get(ADMIN_COOKIE_NAME);
 
-    if (!sessionCookie) {
-      return NextResponse.json({ authenticated: false }, { status: 401 });
+    if (sessionCookie) {
+      try {
+        const payload = verifyCookieValue(sessionCookie.value);
+        if (payload) {
+          const sessionData = JSON.parse(Buffer.from(payload, "base64").toString());
+          const sessionAge = Date.now() - sessionData.timestamp;
+          if (sessionAge <= COOKIE_MAX_AGE * 1000 && sessionData.authenticated) {
+            return NextResponse.json({ authenticated: true });
+          }
+        }
+      } catch {}
     }
 
-    try {
-      // Verify HMAC signature before trusting the payload
-      const payload = verifyCookieValue(sessionCookie.value);
-      if (!payload) {
-        return NextResponse.json({ authenticated: false, reason: "invalid" }, { status: 401 });
-      }
-
-      const sessionData = JSON.parse(
-        Buffer.from(payload, "base64").toString()
-      );
-
-      // Check if session is expired (24 hours)
-      const sessionAge = Date.now() - sessionData.timestamp;
-      if (sessionAge > COOKIE_MAX_AGE * 1000) {
-        return NextResponse.json({ authenticated: false, reason: "expired" }, { status: 401 });
-      }
-
-      return NextResponse.json({ authenticated: true });
-    } catch {
-      return NextResponse.json({ authenticated: false, reason: "invalid" }, { status: 401 });
+    // No valid admin session — try user token
+    const userToken = cookieStore.get("vexa-token")?.value;
+    if (userToken) {
+      try {
+        const VEXA_API_URL = process.env.VEXA_API_URL || "http://localhost:8056";
+        const meResp = await fetch(`${VEXA_API_URL}/auth/me`, {
+          headers: { "X-API-Key": userToken },
+        });
+        if (meResp.ok) {
+          const meData = await meResp.json();
+          if (meData.role === "admin") {
+            const raw = Buffer.from(
+              JSON.stringify({ authenticated: true, timestamp: Date.now() })
+            ).toString("base64");
+            cookieStore.set(ADMIN_COOKIE_NAME, signCookieValue(raw), {
+              httpOnly: true,
+              secure: isSecureRequest(),
+              sameSite: "lax",
+              maxAge: COOKIE_MAX_AGE,
+              path: "/",
+            });
+            return NextResponse.json({ authenticated: true });
+          }
+        }
+      } catch {}
     }
+
+    return NextResponse.json({ authenticated: false }, { status: 401 });
   } catch (error) {
     console.error("Admin session check error:", error);
     return NextResponse.json({ authenticated: false }, { status: 500 });

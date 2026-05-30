@@ -1,0 +1,115 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e5]
+  - generic [ref=e41]:
+    - banner [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - link "Vexa Logo vexa" [ref=e45] [cursor=pointer]:
+            - /url: /
+            - img "Vexa Logo" [ref=e47]
+            - generic [ref=e48]: vexa
+          - link "dev" [ref=e49] [cursor=pointer]:
+            - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+            - generic [ref=e50]: dev
+        - generic [ref=e51]:
+          - link "Full Documentation" [ref=e52] [cursor=pointer]:
+            - /url: https://docs.vexa.ai/
+            - img
+            - generic [ref=e53]: Full Documentation
+          - button "Toggle theme" [ref=e54]:
+            - img
+            - generic [ref=e55]: Toggle theme
+          - button "User menu" [ref=e56]:
+            - img
+            - generic [ref=e57]: User menu
+    - generic [ref=e58]:
+      - complementary [ref=e59]:
+        - generic [ref=e60]:
+          - navigation [ref=e64]:
+            - link "Meetings" [ref=e65] [cursor=pointer]:
+              - /url: /meetings
+              - img [ref=e66]
+              - text: Meetings
+            - button "Join Meeting" [ref=e69]:
+              - img [ref=e70]
+              - text: Join Meeting
+            - generic [ref=e71]:
+              - link "Calendar" [ref=e72] [cursor=pointer]:
+                - /url: /calendar
+                - img [ref=e73]
+                - text: Calendar
+              - link "Webhooks" [ref=e75] [cursor=pointer]:
+                - /url: /webhooks
+                - img [ref=e76]
+                - text: Webhooks
+              - link "MCP MCP Setup" [ref=e80] [cursor=pointer]:
+                - /url: /mcp
+                - img "MCP" [ref=e82]
+                - text: MCP Setup
+              - link "Profile" [ref=e83] [cursor=pointer]:
+                - /url: /profile
+                - img [ref=e84]
+                - text: Profile
+            - generic [ref=e87]:
+              - generic [ref=e89]:
+                - img [ref=e90]
+                - generic [ref=e92]: Admin
+              - button "Unlock Admin" [ref=e93]:
+                - img [ref=e94]
+                - generic [ref=e97]: Unlock Admin
+          - generic [ref=e98]:
+            - link "API Docs" [ref=e99] [cursor=pointer]:
+              - /url: https://docs.vexa.ai/
+              - img [ref=e100]
+              - text: API Docs
+            - link "Report a Bug" [ref=e102] [cursor=pointer]:
+              - /url: https://github.com/Vexa-ai/vexa/issues/new?labels=bug,hosted&title=[Hosted]%20&body=%23%23%20Environment%0AHosted%20service%20(dashboard.vexa.ai)%0A%0A%23%23%20Description%0A%0A%23%23%20Steps%20to%20reproduce%0A1.%20%0A%0A%23%23%20Expected%20behavior%0A%0A%23%23%20Actual%20behavior%0A
+              - img [ref=e103]
+              - text: Report a Bug
+            - generic [ref=e113]:
+              - generic [ref=e114]: vexa
+              - link "dev" [ref=e115] [cursor=pointer]:
+                - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+                - generic [ref=e116]: dev
+      - main [ref=e117]:
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - heading "Meetings" [level=1] [ref=e123]
+                - paragraph [ref=e124]: Browse and search your meeting transcriptions
+              - generic [ref=e125]:
+                - button [ref=e126]:
+                  - img
+                - button "Join Meeting" [ref=e128]:
+                  - img
+                  - generic [ref=e129]: Join Meeting
+            - generic [ref=e130]:
+              - generic [ref=e131]:
+                - img [ref=e132]
+                - textbox "Search meetings..." [ref=e135]
+              - generic [ref=e136]:
+                - combobox [ref=e137]:
+                  - generic: All Platforms
+                  - img
+                - combobox [ref=e138]:
+                  - generic: All Status
+                  - img
+          - table [ref=e141]:
+            - rowgroup [ref=e142]:
+              - row "Platform Meeting Status Duration Time" [ref=e143]:
+                - columnheader "Platform" [ref=e144]
+                - columnheader "Meeting" [ref=e145]
+                - columnheader "Status" [ref=e146]
+                - columnheader "Duration" [ref=e147]
+                - columnheader "Time" [ref=e148]
+            - rowgroup [ref=e149]:
+              - row "No meetings yet Join your first meeting" [ref=e150]:
+                - cell "No meetings yet Join your first meeting" [ref=e151]:
+                  - generic [ref=e152]:
+                    - img [ref=e153]
+                    - paragraph [ref=e156]: No meetings yet
+                    - button "Join your first meeting" [ref=e157]:
+                      - img
+                      - text: Join your first meeting
+    - region "Notifications alt+T"

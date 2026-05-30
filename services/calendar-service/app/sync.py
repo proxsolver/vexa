@@ -1,6 +1,8 @@
 """Calendar sync loop — polls Google Calendar, upserts events, schedules bots."""
 
+import hashlib
 import os
+import re
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -259,11 +261,15 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
             "name": event.title,
         }
 
-        # If user set a leave time, pass it as max_bot_time (ms)
-        if leave_after_minutes and leave_after_minutes > 0:
-            bot_payload["automatic_leave"] = {
-                "max_bot_time": leave_after_minutes * 60 * 1000,
-            }
+        # Calculate auto-leave: calendar end time + extra minutes
+        # Default (leave_after_minutes=0): bot leaves at calendar end time
+        # Bot also leaves early if host leaves (handled by platform callbacks)
+        if event.end_time:
+            remaining_ms = int((event.end_time - now).total_seconds() * 1000) + leave_after_minutes * 60 * 1000
+            if remaining_ms > 0:
+                bot_payload["automatic_leave"] = {
+                    "max_bot_time": remaining_ms,
+                }
 
         try:
             async with httpx.AsyncClient() as client:
@@ -286,6 +292,14 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
                 )
                 scheduled += 1
                 logger.info(f"Scheduled bot for event {event.id}: {event.title}")
+            elif resp.status_code == 409:
+                # Duplicate — another event already scheduled this meeting
+                logger.info(f"Event {event.id} already has an active bot (409), marking as scheduled")
+                await db.execute(
+                    update(CalendarEvent)
+                    .where(CalendarEvent.id == event.id)
+                    .values(status="scheduled")
+                )
             else:
                 logger.error(f"Bot request failed for event {event.id}: {resp.status_code} {resp.text}")
                 await db.execute(
@@ -307,9 +321,20 @@ def _extract_native_id(url: str, platform: str) -> str:
         return url.rsplit("/", 1)[-1].split("?")[0]
     if platform == "zoom":
         # https://zoom.us/j/123456?pwd=xxx -> 123456
-        import re
         match = re.search(r"/j/(\d+)", url)
         return match.group(1) if match else url
     if platform == "teams":
-        return url
+        # https://teams.microsoft.com/meet/381897345737588?p=... -> 381897345737588
+        meet_match = re.search(r"/meet/(\d+)", url)
+        if meet_match:
+            return meet_match.group(1)
+        # Deep link: /v2/?meetingjoin=true#/meet/<id>?p=<passcode>
+        deep_match = re.search(r"#/meet/(\d+)", url)
+        if deep_match:
+            return deep_match.group(1)
+        # https://teams.microsoft.com/l/meetup-join/...?threadId=..&meetingId=..
+        meetup_match = re.search(r"[?&]meetingId=([^&]+)", url)
+        if meetup_match:
+            return meetup_match.group(1)
+        return hashlib.sha256(url.encode()).hexdigest()[:16]
     return url

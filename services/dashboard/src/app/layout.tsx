@@ -17,18 +17,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vexa Dashboard",
-  description: "Open source meeting transcription dashboard for Vexa",
+  title: "Lexor Dashboard",
+  description: "AI-powered meeting transcription and intelligence platform",
   icons: {
     icon: [
       {
-        url: withBasePath("/icons/vexadark.svg"),
+        url: withBasePath("/icons/lexordark.svg"),
         type: "image/svg+xml",
       },
     ],
     apple: [
       {
-        url: withBasePath("/icons/vexadark.svg"),
+        url: withBasePath("/icons/lexordark.svg"),
         type: "image/svg+xml",
       },
     ],

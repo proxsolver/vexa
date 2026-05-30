@@ -1,0 +1,19 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e5]
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - img "Vexa Logo" [ref=e9]
+      - generic [ref=e10]: vexa
+    - generic [ref=e18]:
+      - heading "Sign in to continue" [level=2] [ref=e27]
+      - paragraph [ref=e28]: Choose your provider to get started
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - img [ref=e31]
+          - textbox "you@example.com" [ref=e34]
+        - button "Continue with Email" [ref=e35]
+      - button "Back" [ref=e37]:
+        - img [ref=e38]
+        - text: Back
+    - paragraph [ref=e40]: Open Source · Developer-first · API-first
+  - region "Notifications alt+T"

@@ -39,6 +39,8 @@ export async function GET() {
       id: data.user_id,
       email: data.email,
       name: data.name || data.email,
+      role: data.role || "free",
+      status: data.status || "approved",
     };
 
     return NextResponse.json({ authenticated: true, user, token });

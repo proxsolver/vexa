@@ -57,6 +57,7 @@ _INTERNAL_DATA_KEYS = {
     "webhook_delivery", "webhook_deliveries", "webhook_secret", "webhook_secrets",
     "webhook_events", "webhook_url",
     "bot_container_id", "container_name",
+    "ai_summary",
 }
 
 

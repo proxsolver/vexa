@@ -5,6 +5,7 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   CreateTokenResponse,
+  AuditLog,
 } from "@/types/vexa";
 
 class AdminAPIError extends Error {
@@ -93,6 +94,61 @@ export const adminAPI = {
       const text = await response.text();
       throw new AdminAPIError("Failed to revoke token", response.status, text);
     }
+  },
+
+  // ==========================================
+  // User Approval
+  // ==========================================
+
+  async getPendingUsers(): Promise<VexaUser[]> {
+    const response = await fetch(withBasePath("/api/admin/users/pending"));
+    return handleResponse<VexaUser[]>(response);
+  },
+
+  async approveUser(userId: string, role?: string): Promise<VexaUser> {
+    const response = await fetch(withBasePath(`/api/admin/users/${userId}/approval`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved", role: role || "free" }),
+    });
+    return handleResponse<VexaUser>(response);
+  },
+
+  async rejectUser(userId: string): Promise<VexaUser> {
+    const response = await fetch(withBasePath(`/api/admin/users/${userId}/approval`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "rejected" }),
+    });
+    return handleResponse<VexaUser>(response);
+  },
+
+  // ==========================================
+  // Audit Logs
+  // ==========================================
+
+  async getAuditLogs(params: {
+    user_id?: number;
+    action?: string;
+    resource_type?: string;
+    date_from?: string;
+    date_to?: string;
+    skip?: number;
+    limit?: number;
+  } = {}): Promise<{
+    total: number;
+    items: AuditLog[];
+    skip: number;
+    limit: number;
+  }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== "") searchParams.set(k, String(v));
+    });
+    const response = await fetch(
+      withBasePath(`/api/admin/audit-logs?${searchParams}`)
+    );
+    return handleResponse(response);
   },
 
   // ==========================================

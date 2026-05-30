@@ -235,6 +235,8 @@ export interface VexaUserData {
   max_concurrent_bots: number;
   created_at: string;
   data?: Record<string, unknown>;
+  role: "admin" | "free" | "paid";
+  status: "pending" | "approved" | "rejected";
 }
 
 /**

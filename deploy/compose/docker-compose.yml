@@ -25,7 +25,7 @@ services:
     environment:
       - POSTGRES_DB=${DB_NAME:-vexa}
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5458}:5432"
     healthcheck:
@@ -96,7 +96,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-vexa}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
       - DB_SSL_MODE=disable
       - ADMIN_API_TOKEN=${ADMIN_TOKEN:-changeme}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-vexa-internal-secret}
@@ -141,7 +141,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-vexa}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
       - DB_SSL_MODE=disable
       - PROFILES_PATH=/app/profiles.yaml
       - ALLOW_PRIVATE_CALLBACKS=1
@@ -217,6 +217,12 @@ services:
       - CALENDAR_SERVICE_URL=http://calendar-service:8050
       - AGENT_API_URL=http://agent-api:8100
       - REDIS_URL=redis://redis:6379/0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-vexa}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-vexa-internal-secret}
       - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-120}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -255,7 +261,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-vexa}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
       - DB_SSL_MODE=disable
       - REDIS_URL=redis://redis:6379/0
       - REDIS_HOST=redis
@@ -268,7 +274,7 @@ services:
       - BOT_IMAGE_NAME=${BROWSER_IMAGE}
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-vexa}_vexa
       - TTS_SERVICE_URL=http://tts-service:8002
-      - POST_MEETING_HOOKS=${POST_MEETING_HOOKS:-http://agent-api:8100/internal/webhooks/meeting-completed}
+      - POST_MEETING_HOOKS=${POST_MEETING_HOOKS:-}
       - TRANSCRIPTION_COLLECTOR_URL=http://meeting-api:8080
       - STORAGE_BACKEND=${STORAGE_BACKEND:-minio}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
@@ -290,6 +296,10 @@ services:
       - TRANSCRIPTION_SERVICE_TOKEN=${TRANSCRIPTION_SERVICE_TOKEN:-}
       - TRANSCRIPTION_GATEWAY_URL=${TRANSCRIPTION_GATEWAY_URL:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AI_SUMMARY_ENABLED=${AI_SUMMARY_ENABLED:-false}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ${LOCAL_STORAGE_VOLUME_SOURCE:-recordings-data}:/data/recordings
@@ -371,6 +381,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-}
     init: true
     depends_on:
       - api-gateway
@@ -411,7 +422,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-vexa}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
       - DB_SSL_MODE=disable
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
@@ -420,6 +431,8 @@ services:
       - SYNC_INTERVAL_SECONDS=${CALENDAR_SYNC_INTERVAL:-300}
       - DEFAULT_LEAD_TIME_MINUTES=${CALENDAR_LEAD_TIME:-2}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-vexa-internal-secret}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

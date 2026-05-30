@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import redis.asyncio as aioredis
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc, func, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1074,7 +1074,7 @@ async def request_bot(
 
     # System defaults for timeouts (ms)
     SYSTEM_DEFAULTS = {
-        "max_bot_time": 7200000,          # 2h
+        "max_bot_time": 7200000,          # 2h (rotation replaces bot before this)
         "max_wait_for_admission": 900000, # 15 min
         "max_time_left_alone": 900000,    # 15 min
         "no_one_joined_timeout": 120000,  # 2 min
@@ -1491,10 +1491,10 @@ async def list_user_bots(
         total_size = 0
         for r in recordings:
             if isinstance(r, dict):
-                total_size += r.get("file_size_bytes", 0)
+                total_size += r.get("file_size_bytes") or 0
                 for mf in r.get("media_files", []):
                     if isinstance(mf, dict):
-                        total_size += mf.get("file_size_bytes", 0)
+                        total_size += mf.get("file_size_bytes") or 0
         return {
             "name": d.get("name") or d.get("title"),
             "completion_reason": d.get("completion_reason"),
@@ -1833,7 +1833,7 @@ async def stop_bot(
 # Bot Rotation — Internal endpoint called by scheduler
 # ---------------------------------------------------------------------------
 
-ROTATION_DEFAULT_INTERVAL_MS = int(os.getenv("ROTATION_DEFAULT_INTERVAL_MS", "7200000"))
+ROTATION_DEFAULT_INTERVAL_MS = int(os.getenv("ROTATION_DEFAULT_INTERVAL_MS", "3600000"))
 ROTATION_DEFAULT_OVERLAP_MS = int(os.getenv("ROTATION_DEFAULT_OVERLAP_MS", "120000"))
 ROTATION_MAX_RETRY = int(os.getenv("ROTATION_MAX_RETRY", "3"))
 ROTATION_RETRY_BACKOFF_MS = int(os.getenv("ROTATION_RETRY_BACKOFF_MS", "300000"))

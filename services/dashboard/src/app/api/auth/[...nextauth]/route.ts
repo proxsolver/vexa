@@ -95,8 +95,8 @@ export const authOptions: NextAuthOptions = {
       : []),
   ],
   pages: {
-    signIn: buildAppPath("/login"),
-    error: buildAppPath("/login"),
+    signIn: "/",
+    error: "/",
   },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -161,6 +161,18 @@ export const authOptions: NextAuthOptions = {
             path: "/",
           });
 
+          // Step 2.5: Check if user is approved
+          if (vexaUser.status === "pending") {
+            console.log(`[NextAuth] User ${user.email} is pending approval`);
+            (user as any).approvalStatus = "pending";
+            return true; // Allow sign-in but store status for redirect
+          }
+          if (vexaUser.status === "rejected") {
+            console.log(`[NextAuth] User ${user.email} was rejected`);
+            (user as any).approvalStatus = "rejected";
+            return true; // Allow sign-in but store status for redirect
+          }
+
           // Store Vexa user info in the user object for the JWT callback
           (user as any).vexaUser = vexaUser;
           (user as any).vexaToken = apiToken;
@@ -181,6 +193,7 @@ export const authOptions: NextAuthOptions = {
         token.vexaUser = (user as any).vexaUser;
         token.vexaToken = (user as any).vexaToken;
         token.isNewUser = (user as any).isNewUser;
+        token.approvalStatus = (user as any).approvalStatus;
       }
       return token;
     },
@@ -190,6 +203,7 @@ export const authOptions: NextAuthOptions = {
         (session as any).vexaUser = token.vexaUser;
         (session as any).vexaToken = token.vexaToken;
         (session as any).isNewUser = token.isNewUser;
+        (session as any).approvalStatus = token.approvalStatus;
       }
       return session;
     },

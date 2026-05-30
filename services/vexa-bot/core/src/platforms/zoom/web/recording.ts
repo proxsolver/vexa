@@ -4,7 +4,7 @@ import { RecordingService } from '../../../services/recording';
 import { getRawCaptureService, getSegmentPublisher, feedZoomAudio } from '../../../index';
 import { log } from '../../../utils';
 import { PulseAudioCapture, UnifiedRecordingPipeline } from '../../../services/audio-pipeline';
-import { zoomParticipantNameSelector } from './selectors';
+import { zoomAudioButtonSelector, zoomParticipantNameSelector } from './selectors';
 import { dismissZoomPopups } from './prepare';
 import { startZoomRichObservation } from './observe';
 
@@ -22,6 +22,32 @@ export function getLastActiveSpeaker(): string | null {
 
 export async function startZoomWebRecording(page: Page | null, botConfig: BotConfig): Promise<void> {
   if (!page) throw new Error('[Zoom Web] Page required for recording');
+
+  // Mute mic after admission for non-voice-agent bots. prepare.ts also tries
+  // this, but it runs in parallel with waitForAdmission and may finish before
+  // the bot is admitted. This guarantees the mute happens post-admission.
+  const isVoiceAgent = !!botConfig.voiceAgentEnabled;
+  if (!isVoiceAgent) {
+    try {
+      await page.waitForTimeout(2000); // Wait for meeting UI to settle
+      const audioBtn = page.locator(zoomAudioButtonSelector).first();
+      const visible = await audioBtn.isVisible({ timeout: 5000 });
+      if (visible) {
+        const ariaLabel = (await audioBtn.getAttribute('aria-label') || '').toLowerCase();
+        // "mute my microphone" / "mute" = currently unmuted → click to mute
+        // "unmute my microphone" / "unmute" = already muted → skip
+        const isCurrentlyUnmuted = ariaLabel.includes('mute') && !ariaLabel.includes('unmute');
+        if (isCurrentlyUnmuted) {
+          await audioBtn.click();
+          log(`[Zoom Web] Muted mic in startRecording (aria-label was "${ariaLabel}")`);
+        } else {
+          log(`[Zoom Web] Mic already muted at startRecording (aria-label="${ariaLabel}")`);
+        }
+      }
+    } catch (e: any) {
+      log(`[Zoom Web] Post-admission mic mute failed (non-fatal): ${e.message}`);
+    }
+  }
 
   const wantsAudioCapture =
     !!botConfig.recordingEnabled &&

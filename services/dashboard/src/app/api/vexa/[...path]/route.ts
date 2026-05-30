@@ -40,7 +40,10 @@ async function proxyRequest(
       });
       if (botsResp.ok) {
         const data = await botsResp.json();
-        return NextResponse.json({ meetings: data.meetings || [], has_more: data.has_more ?? false });
+        return NextResponse.json(
+          { meetings: data.meetings || [], has_more: data.has_more ?? false },
+          { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+        );
       }
     } catch (e) {
       console.error("[proxy] GET /bots failed, falling back to /bots/status:", e);

@@ -220,7 +220,7 @@ function VerifyContent() {
 
                 <Button
                   variant={error.canRetry ? "outline" : "default"}
-                  onClick={() => router.push("/login")}
+                  onClick={() => router.push("/")}
                   className="w-full"
                 >
                   {error.code === "TOKEN_EXPIRED" ? "Request New Link" : "Back to Login"}
@@ -263,7 +263,7 @@ export default function VerifyPage() {
         </Suspense>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Vexa Dashboard - Open Source Meeting Transcription
+          Lexor Dashboard - AI Meeting Intelligence
         </p>
       </div>
     </div>

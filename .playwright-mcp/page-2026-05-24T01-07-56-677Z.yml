@@ -1,0 +1,263 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "Lexor Logo Lexor" [ref=e92] [cursor=pointer]:
+            - /url: /
+            - img "Lexor Logo" [ref=e93]
+            - generic [ref=e9]: Lexor
+          - link "dev" [ref=e10] [cursor=pointer]:
+            - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+            - generic [ref=e11]: dev
+        - generic [ref=e12]:
+          - link "Full Documentation" [ref=e13] [cursor=pointer]:
+            - /url: https://docs.vexa.ai/
+            - img
+            - generic [ref=e14]: Full Documentation
+          - button "Toggle theme" [ref=e94]:
+            - img
+            - generic [ref=e95]: Toggle theme
+          - button "User menu" [ref=e17]:
+            - img
+            - generic [ref=e18]: User menu
+    - generic [ref=e19]:
+      - complementary [ref=e20]:
+        - navigation [ref=e25]:
+          - link "Meetings" [ref=e26] [cursor=pointer]:
+            - /url: /meetings
+            - img [ref=e27]
+            - text: Meetings
+          - button "Join Meeting" [ref=e30]:
+            - img [ref=e31]
+            - text: Join Meeting
+          - generic [ref=e32]:
+            - link "Calendar" [ref=e33] [cursor=pointer]:
+              - /url: /calendar
+              - img [ref=e34]
+              - text: Calendar
+            - link "Webhooks" [ref=e36] [cursor=pointer]:
+              - /url: /webhooks
+              - img [ref=e37]
+              - text: Webhooks
+            - link "MCP MCP Setup" [ref=e41] [cursor=pointer]:
+              - /url: /mcp
+              - img "MCP" [ref=e43]
+              - text: MCP Setup
+            - link "Profile" [ref=e44] [cursor=pointer]:
+              - /url: /profile
+              - img [ref=e45]
+              - text: Profile
+          - generic [ref=e96]:
+            - generic [ref=e98]:
+              - img [ref=e99]
+              - generic [ref=e101]: Admin
+            - link "Users" [ref=e102] [cursor=pointer]:
+              - /url: /admin/users
+              - img [ref=e103]
+              - text: Users
+            - link "Approvals" [ref=e108] [cursor=pointer]:
+              - /url: /admin/approvals
+              - img [ref=e109]
+              - text: Approvals
+            - link "Bots" [ref=e111] [cursor=pointer]:
+              - /url: /admin/bots
+              - img [ref=e112]
+              - text: Bots
+            - link "Audit Logs" [ref=e115] [cursor=pointer]:
+              - /url: /admin/audit-logs
+              - img [ref=e116]
+              - text: Audit Logs
+            - link "Settings" [ref=e118] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e119]
+              - text: Settings
+      - main [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]:
+                - heading "Meetings" [level=1] [ref=e55]
+                - paragraph [ref=e56]: Browse and search your meeting transcriptions
+              - generic [ref=e57]:
+                - button [ref=e58]:
+                  - img
+                - button "Join Meeting" [ref=e60]:
+                  - img
+                  - generic [ref=e61]: Join Meeting
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e64]
+                - textbox "Search meetings..." [ref=e67]
+              - generic [ref=e68]:
+                - combobox [ref=e69]:
+                  - generic: All Platforms
+                  - img
+                - combobox [ref=e71]:
+                  - generic: All Status
+                  - img
+          - table [ref=e75]:
+            - rowgroup [ref=e76]:
+              - row "Platform Meeting Status Duration Time" [ref=e77]:
+                - columnheader "Platform" [ref=e78]
+                - columnheader "Meeting" [ref=e79]
+                - columnheader "Status" [ref=e80]
+                - columnheader "Duration" [ref=e81]
+                - columnheader "Time" [ref=e82]
+            - rowgroup [ref=e83]:
+              - row "Zoom 86493160153 Failed 2h 3m May 23, 09:03 1 day ago" [ref=e122] [cursor=pointer]:
+                - cell "Zoom" [ref=e123]:
+                  - img "Zoom" [ref=e124]
+                - cell "86493160153" [ref=e125]
+                - cell "Failed" [ref=e126]:
+                  - generic [ref=e129]: Failed
+                - cell "2h 3m" [ref=e130]
+                - cell "May 23, 09:03 1 day ago" [ref=e131]:
+                  - text: May 23, 09:03
+                  - generic [ref=e132]: 1 day ago
+              - row "Teams 327573059895081 Stopped 19m May 21, 13:52 3 days ago" [ref=e133] [cursor=pointer]:
+                - cell "Teams" [ref=e134]:
+                  - img "Teams" [ref=e135]
+                - cell "327573059895081" [ref=e136]
+                - cell "Stopped" [ref=e137]:
+                  - generic [ref=e140]: Stopped
+                - cell "19m" [ref=e141]
+                - cell "May 21, 13:52 3 days ago" [ref=e142]:
+                  - text: May 21, 13:52
+                  - generic [ref=e143]: 3 days ago
+              - row "Zoom 87415989500 Completed 1m May 21, 08:08 3 days ago" [ref=e144] [cursor=pointer]:
+                - cell "Zoom" [ref=e145]:
+                  - img "Zoom" [ref=e146]
+                - cell "87415989500" [ref=e147]
+                - cell "Completed" [ref=e148]:
+                  - generic [ref=e151]: Completed
+                - cell "1m" [ref=e152]
+                - cell "May 21, 08:08 3 days ago" [ref=e153]:
+                  - text: May 21, 08:08
+                  - generic [ref=e154]: 3 days ago
+              - row "Zoom 87510399020 Completed 1m May 21, 00:40 3 days ago" [ref=e155] [cursor=pointer]:
+                - cell "Zoom" [ref=e156]:
+                  - img "Zoom" [ref=e157]
+                - cell "87510399020" [ref=e158]
+                - cell "Completed" [ref=e159]:
+                  - generic [ref=e162]: Completed
+                - cell "1m" [ref=e163]
+                - cell "May 21, 00:40 3 days ago" [ref=e164]:
+                  - text: May 21, 00:40
+                  - generic [ref=e165]: 3 days ago
+              - row "Zoom 86971325565 Completed 1m May 21, 00:29 3 days ago" [ref=e166] [cursor=pointer]:
+                - cell "Zoom" [ref=e167]:
+                  - img "Zoom" [ref=e168]
+                - cell "86971325565" [ref=e169]
+                - cell "Completed" [ref=e170]:
+                  - generic [ref=e173]: Completed
+                - cell "1m" [ref=e174]
+                - cell "May 21, 00:29 3 days ago" [ref=e175]:
+                  - text: May 21, 00:29
+                  - generic [ref=e176]: 3 days ago
+              - row "Google Meet qap-hyjy-juu Stopped 2m May 21, 00:19 3 days ago" [ref=e177] [cursor=pointer]:
+                - cell "Google Meet" [ref=e178]:
+                  - img "Google Meet" [ref=e179]
+                - cell "qap-hyjy-juu" [ref=e180]
+                - cell "Stopped" [ref=e181]:
+                  - generic [ref=e184]: Stopped
+                - cell "2m" [ref=e185]
+                - cell "May 21, 00:19 3 days ago" [ref=e186]:
+                  - text: May 21, 00:19
+                  - generic [ref=e187]: 3 days ago
+              - row "Zoom 85951687048 Requested — May 20, 21:02" [ref=e188] [cursor=pointer]:
+                - cell "Zoom" [ref=e189]:
+                  - img "Zoom" [ref=e190]
+                - cell "85951687048" [ref=e191]
+                - cell "Requested" [ref=e192]:
+                  - generic [ref=e195]: Requested
+                - cell "—" [ref=e196]
+                - cell "May 20, 21:02" [ref=e197]
+              - row "Zoom 85951687048 Stopped — May 20, 21:02" [ref=e198] [cursor=pointer]:
+                - cell "Zoom" [ref=e199]:
+                  - img "Zoom" [ref=e200]
+                - cell "85951687048" [ref=e201]
+                - cell "Stopped" [ref=e202]:
+                  - generic [ref=e205]: Stopped
+                - cell "—" [ref=e206]
+                - cell "May 20, 21:02" [ref=e207]
+              - row "Zoom 85951687048 Failed — May 20, 21:01" [ref=e208] [cursor=pointer]:
+                - cell "Zoom" [ref=e209]:
+                  - img "Zoom" [ref=e210]
+                - cell "85951687048" [ref=e211]
+                - cell "Failed" [ref=e212]:
+                  - generic [ref=e215]: Failed
+                - cell "—" [ref=e216]
+                - cell "May 20, 21:01" [ref=e217]
+              - row "Zoom 85951687048 Failed — May 20, 21:01" [ref=e218] [cursor=pointer]:
+                - cell "Zoom" [ref=e219]:
+                  - img "Zoom" [ref=e220]
+                - cell "85951687048" [ref=e221]
+                - cell "Failed" [ref=e222]:
+                  - generic [ref=e225]: Failed
+                - cell "—" [ref=e226]
+                - cell "May 20, 21:01" [ref=e227]
+              - row "Zoom 85951687048 Failed — May 20, 21:01" [ref=e228] [cursor=pointer]:
+                - cell "Zoom" [ref=e229]:
+                  - img "Zoom" [ref=e230]
+                - cell "85951687048" [ref=e231]
+                - cell "Failed" [ref=e232]:
+                  - generic [ref=e235]: Failed
+                - cell "—" [ref=e236]
+                - cell "May 20, 21:01" [ref=e237]
+              - row "Zoom 85951687048 Failed — May 20, 20:38" [ref=e238] [cursor=pointer]:
+                - cell "Zoom" [ref=e239]:
+                  - img "Zoom" [ref=e240]
+                - cell "85951687048" [ref=e241]
+                - cell "Failed" [ref=e242]:
+                  - generic [ref=e245]: Failed
+                - cell "—" [ref=e246]
+                - cell "May 20, 20:38" [ref=e247]
+              - row "Zoom 85951687048 Failed — May 20, 20:38" [ref=e248] [cursor=pointer]:
+                - cell "Zoom" [ref=e249]:
+                  - img "Zoom" [ref=e250]
+                - cell "85951687048" [ref=e251]
+                - cell "Failed" [ref=e252]:
+                  - generic [ref=e255]: Failed
+                - cell "—" [ref=e256]
+                - cell "May 20, 20:38" [ref=e257]
+              - row "Zoom 85951687048 Failed — May 20, 20:38" [ref=e258] [cursor=pointer]:
+                - cell "Zoom" [ref=e259]:
+                  - img "Zoom" [ref=e260]
+                - cell "85951687048" [ref=e261]
+                - cell "Failed" [ref=e262]:
+                  - generic [ref=e265]: Failed
+                - cell "—" [ref=e266]
+                - cell "May 20, 20:38" [ref=e267]
+              - row "Zoom 88122170586 Completed 23m May 20, 18:31 4 days ago" [ref=e268] [cursor=pointer]:
+                - cell "Zoom" [ref=e269]:
+                  - img "Zoom" [ref=e270]
+                - cell "88122170586" [ref=e271]
+                - cell "Completed" [ref=e272]:
+                  - generic [ref=e275]: Completed
+                - cell "23m" [ref=e276]
+                - cell "May 20, 18:31 4 days ago" [ref=e277]:
+                  - text: May 20, 18:31
+                  - generic [ref=e278]: 4 days ago
+              - row "Google Meet ewt-tcej-bwa Stopped 31m May 18, 17:33 6 days ago" [ref=e279] [cursor=pointer]:
+                - cell "Google Meet" [ref=e280]:
+                  - img "Google Meet" [ref=e281]
+                - cell "ewt-tcej-bwa" [ref=e282]
+                - cell "Stopped" [ref=e283]:
+                  - generic [ref=e286]: Stopped
+                - cell "31m" [ref=e287]
+                - cell "May 18, 17:33 6 days ago" [ref=e288]:
+                  - text: May 18, 17:33
+                  - generic [ref=e289]: 6 days ago
+              - row "Google Meet mff-wepf-utb Stopped 14m May 18, 17:23 6 days ago" [ref=e290] [cursor=pointer]:
+                - cell "Google Meet" [ref=e291]:
+                  - img "Google Meet" [ref=e292]
+                - cell "mff-wepf-utb" [ref=e293]
+                - cell "Stopped" [ref=e294]:
+                  - generic [ref=e297]: Stopped
+                - cell "14m" [ref=e298]
+                - cell "May 18, 17:23 6 days ago" [ref=e299]:
+                  - text: May 18, 17:23
+                  - generic [ref=e300]: 6 days ago
+    - region "Notifications alt+T"
+  - alert [ref=e301]

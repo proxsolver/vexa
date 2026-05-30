@@ -67,9 +67,10 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
         const ariaLabel = await audioBtn.getAttribute('aria-label');
         log(`[Zoom Web] Audio button aria-label: "${ariaLabel}" (attempt ${attempt + 1})`);
 
-        // If aria-label is "Mute" or "Unmute", audio is already joined
-        if (ariaLabel && (ariaLabel === 'Mute' || ariaLabel === 'Unmute')) {
-          log('[Zoom Web] Audio already joined (mic toggle visible)');
+        // If aria-label contains "mute" or "unmute" (any casing), audio is already joined.
+        // Zoom uses "Mute", "Unmute", "mute my microphone", "unmute my microphone" etc.
+        if (ariaLabel && /mute/i.test(ariaLabel)) {
+          log(`[Zoom Web] Audio already joined (mic toggle visible: "${ariaLabel}")`);
           audioJoined = true;
           break;
         }
@@ -141,13 +142,13 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
     }
   }
 
-  // Final verification: check if Mute/Unmute appeared after all attempts
+  // Final verification: check if mute toggle appeared after all attempts
   if (!audioJoined) {
     try {
       const finalCheck = page.locator(zoomAudioButtonSelector).first();
       const finalLabel = await finalCheck.getAttribute('aria-label').catch(() => null);
-      if (finalLabel === 'Mute' || finalLabel === 'Unmute') {
-        log('[Zoom Web] Audio joined (confirmed on final check)');
+      if (finalLabel && /mute/i.test(finalLabel)) {
+        log(`[Zoom Web] Audio joined (confirmed on final check: "${finalLabel}")`);
         audioJoined = true;
       }
     } catch { /* ignore */ }
@@ -200,12 +201,18 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
   const isVoiceAgent = !!botConfig.voiceAgentEnabled;
   if (!isVoiceAgent) {
     try {
-      const muteBtn = page.locator('button[aria-label="Mute"]').first();
+      const muteBtn = page.locator(zoomAudioButtonSelector).first();
       if (await muteBtn.isVisible({ timeout: 2000 })) {
-        await muteBtn.click();
-        log('[Zoom Web] Muted mic post-admission (was unmuted after audio join)');
+        const ariaLabel = (await muteBtn.getAttribute('aria-label') || '').toLowerCase();
+        const isCurrentlyUnmuted = ariaLabel.includes('mute') && !ariaLabel.includes('unmute');
+        if (isCurrentlyUnmuted) {
+          await muteBtn.click();
+          log(`[Zoom Web] Muted mic post-admission (aria-label was "${ariaLabel}")`);
+        } else {
+          log(`[Zoom Web] Mic already muted post-admission (aria-label="${ariaLabel}")`);
+        }
       } else {
-        log('[Zoom Web] Mic already muted post-admission');
+        log('[Zoom Web] Mic button not visible post-admission (may be in waiting room still)');
       }
     } catch (e: any) {
       log(`[Zoom Web] Could not verify mic mute post-admission: ${e.message}`);

@@ -1,15 +1,15 @@
 <p align="center" style="margin-bottom: 0.75em;">
-  <img src="assets/logodark.svg" alt="Vexa Logo" width="56"/>
+  <img src="assets/logodark.svg" alt="Lexor Logo" width="56"/>
 </p>
 
-<h1 align="center" style="margin-top: 0.25em; margin-bottom: 0.5em; font-size: 2.5em; font-weight: 700; letter-spacing: -0.02em;">Vexa</h1>
+<h1 align="center" style="margin-top: 0.25em; margin-bottom: 0.5em; font-size: 2.5em; font-weight: 700; letter-spacing: -0.02em;">Lexor</h1>
 
 <p align="center" style="font-size: 1.75em; margin-top: 0.5em; margin-bottom: 0.75em; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em;">
-  <strong>Open-source meeting bot API & transcription API</strong>
+  <strong>AI-powered meeting intelligence platform</strong>
 </p>
 
 <p align="center" style="font-size: 1em; color: #a0a0a0; margin-top: 0.5em; margin-bottom: 1.5em; letter-spacing: 0.01em;">
-  meeting bots • real-time transcription • interactive bots • MCP server • self-hosted
+  meeting bots • real-time transcription • AI summaries • MCP server • self-hosted
 </p>
 
 <p align="center" style="margin: 1.5em 0; font-size: 1em;">

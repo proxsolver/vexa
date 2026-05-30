@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useJoinModalStore } from "@/stores/join-modal-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { useAdminAuthStore } from "@/stores/admin-auth-store";
 import { AdminAuthModal } from "@/components/admin/admin-auth-modal";
 import { useRuntimeConfig } from "@/hooks/use-runtime-config";
@@ -46,7 +47,9 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Approvals", href: "/admin/approvals", icon: Shield },
   { name: "Bots", href: "/admin/bots", icon: Bot },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -128,9 +131,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const openJoinModal = useJoinModalStore((state) => state.openModal);
   const { isAdminAuthenticated, logout: adminLogout } = useAdminAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
+  const [isRoleAdmin, setIsRoleAdmin] = useState(false);
   const { config } = useRuntimeConfig();
   const isHosted = config?.hostedMode ?? false;
+
+  // Check admin role - use store first, then fallback to API
+  useEffect(() => {
+    if (user?.role === "admin") {
+      setIsRoleAdmin(true);
+      return;
+    }
+    fetch(withBasePath("/api/auth/me"))
+      .then((r) => { if (r.ok) return r.json(); throw new Error(); })
+      .then((data) => { if (data?.user?.role === "admin") setIsRoleAdmin(true); })
+      .catch(() => {});
+  }, [user?.role]);
+
+  const canSeeAdmin = isRoleAdmin || isAdminAuthenticated;
 
   const handleJoinClick = () => {
     openJoinModal();
@@ -294,7 +313,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </Link>
               </div>
 
-              {/* Admin Section */}
+              {/* Admin Section - only visible for admin role users */}
+              {canSeeAdmin && (
               <div className="mt-6 pt-4 border-t">
                 <div className="flex items-center justify-between px-3 mb-2">
                   <div className="flex items-center gap-2">
@@ -316,39 +336,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   )}
                 </div>
 
-                {isAdminAuthenticated ? (
-                  // Show admin navigation when authenticated
-                  adminNavigation.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
+                {adminNavigation.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
 
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={onClose}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        )}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        {item.name}
-                      </Link>
-                    );
-                  })
-                ) : (
-                  // Show login prompt when not authenticated
-                  <button
-                    onClick={() => setShowAdminAuthModal(true)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <Lock className="h-5 w-5" />
-                    <span>Unlock Admin</span>
-                  </button>
-                )}
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
               </div>
+              )}
             </nav>
           </ScrollArea>
 
@@ -367,33 +376,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </a>
               </>
             )}
-            <a
-              href={getDocsUrl("/")}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              <BookOpen className="h-4 w-4" />
-              API Docs
-            </a>
-            <a
-              href="https://github.com/Vexa-ai/vexa/issues/new?labels=bug,hosted&title=[Hosted]%20&body=%23%23%20Environment%0AHosted%20service%20(dashboard.vexa.ai)%0A%0A%23%23%20Description%0A%0A%23%23%20Steps%20to%20reproduce%0A1.%20%0A%0A%23%23%20Expected%20behavior%0A%0A%23%23%20Actual%20behavior%0A"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              <Bug className="h-4 w-4" />
-              Report a Bug
-            </a>
-
-            <div className="px-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground">vexa</span>
-                <VersionChip variant="minimal" look="pill" />
-              </div>
-            </div>
           </div>
         </div>
       </aside>

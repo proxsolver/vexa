@@ -1,0 +1,170 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Lexor" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e9]: Lexor
+        - link "dev" [ref=e10] [cursor=pointer]:
+          - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+          - generic [ref=e11]: dev
+      - generic [ref=e12]:
+        - link "Full Documentation" [ref=e13] [cursor=pointer]:
+          - /url: https://docs.vexa.ai/
+          - img
+          - generic [ref=e14]: Full Documentation
+        - button "Toggle theme" [ref=e15]:
+          - img
+          - generic [ref=e16]: Toggle theme
+        - button "User menu" [ref=e17]:
+          - img
+          - generic [ref=e18]: User menu
+  - generic [ref=e19]:
+    - complementary [ref=e20]:
+      - generic [ref=e21]:
+        - navigation [ref=e25]:
+          - link "Meetings" [ref=e26] [cursor=pointer]:
+            - /url: /meetings
+            - img [ref=e27]
+            - text: Meetings
+          - button "Join Meeting" [ref=e30]:
+            - img [ref=e31]
+            - text: Join Meeting
+          - generic [ref=e32]:
+            - link "Calendar" [ref=e33] [cursor=pointer]:
+              - /url: /calendar
+              - img [ref=e34]
+              - text: Calendar
+            - link "Webhooks" [ref=e36] [cursor=pointer]:
+              - /url: /webhooks
+              - img [ref=e37]
+              - text: Webhooks
+            - link "MCP MCP Setup" [ref=e41] [cursor=pointer]:
+              - /url: /mcp
+              - img "MCP" [ref=e43]
+              - text: MCP Setup
+            - link "Profile" [ref=e44] [cursor=pointer]:
+              - /url: /profile
+              - img [ref=e45]
+              - text: Profile
+          - generic [ref=e48]:
+            - generic [ref=e50]:
+              - img [ref=e51]
+              - generic [ref=e53]: Admin
+            - button "Unlock Admin" [ref=e54]:
+              - img [ref=e55]
+              - generic [ref=e58]: Unlock Admin
+        - generic [ref=e59]:
+          - link "API Docs" [ref=e60] [cursor=pointer]:
+            - /url: https://docs.vexa.ai/
+            - img [ref=e61]
+            - text: API Docs
+          - link "Report a Bug" [ref=e63] [cursor=pointer]:
+            - /url: https://github.com/Vexa-ai/vexa/issues/new?labels=bug,hosted&title=[Hosted]%20&body=%23%23%20Environment%0AHosted%20service%20(dashboard.vexa.ai)%0A%0A%23%23%20Description%0A%0A%23%23%20Steps%20to%20reproduce%0A1.%20%0A%0A%23%23%20Expected%20behavior%0A%0A%23%23%20Actual%20behavior%0A
+            - img [ref=e64]
+            - text: Report a Bug
+          - generic [ref=e74]:
+            - generic [ref=e75]: vexa
+            - link "dev" [ref=e76] [cursor=pointer]:
+              - /url: https://github.com/Vexa-ai/vexa/releases/tag/dev
+              - generic [ref=e77]: dev
+    - main [ref=e78]:
+      - generic [ref=e79]:
+        - navigation [ref=e80]:
+          - generic [ref=e81]:
+            - generic [ref=e84]: Lexor
+            - button "Sign in" [ref=e85]
+        - generic [ref=e88]:
+          - generic [ref=e89]: AI-Powered Meeting Intelligence
+          - heading "Never miss a word from your meetings" [level=1] [ref=e91]:
+            - text: Never miss a word
+            - text: from your meetings
+          - paragraph [ref=e92]: Lexor automatically joins your meetings, transcribes conversations in real-time, and generates AI-powered summaries so you can focus on the discussion — not the notes.
+          - button "Get Started with Google" [ref=e94]:
+            - img
+            - text: Get Started with Google
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - img "Google Meet" [ref=e97]
+              - generic [ref=e98]: Google Meet
+            - generic [ref=e99]:
+              - img "Zoom" [ref=e100]
+              - generic [ref=e101]: Zoom
+            - generic [ref=e102]:
+              - img "Microsoft Teams" [ref=e103]
+              - generic [ref=e104]: Microsoft Teams
+        - generic [ref=e106]:
+          - heading "How it works" [level=2] [ref=e107]
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]: "1"
+              - heading "Connect your calendar" [level=3] [ref=e111]
+              - paragraph [ref=e112]: Sign in with Google and link your calendar. Lexor sees your upcoming meetings.
+            - generic [ref=e113]:
+              - generic [ref=e114]: "2"
+              - heading "Bot joins automatically" [level=3] [ref=e115]
+              - paragraph [ref=e116]: Lexor's bot joins your meeting as a visible participant and starts transcribing.
+            - generic [ref=e117]:
+              - generic [ref=e118]: "3"
+              - heading "Get AI summaries" [level=3] [ref=e119]
+              - paragraph [ref=e120]: After the meeting, receive a full transcript, summary, and action items instantly.
+        - generic [ref=e122]:
+          - heading "Everything you need for smarter meetings" [level=2] [ref=e123]
+          - paragraph [ref=e124]: Built for teams that value clarity and accountability.
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - img [ref=e128]
+              - heading "Real-time Transcription" [level=3] [ref=e131]
+              - paragraph [ref=e132]: AI-powered transcription captures every word as it's spoken, with speaker identification.
+            - generic [ref=e133]:
+              - img [ref=e135]
+              - heading "AI Meeting Summaries" [level=3] [ref=e138]
+              - paragraph [ref=e139]: Automatic summaries with key takeaways, action items, and decisions after every meeting.
+            - generic [ref=e140]:
+              - img [ref=e142]
+              - heading "Multi-Platform Support" [level=3] [ref=e147]
+              - paragraph [ref=e148]: Works with Google Meet, Zoom, and Microsoft Teams. One tool for all your meetings.
+            - generic [ref=e149]:
+              - img [ref=e151]
+              - heading "50+ Languages" [level=3] [ref=e154]
+              - paragraph [ref=e155]: Automatic language detection and real-time transcription in over 50 languages.
+            - generic [ref=e156]:
+              - img [ref=e158]
+              - heading "Enterprise Security" [level=3] [ref=e160]
+              - paragraph [ref=e161]: Data encryption, audit logging, and role-based access control built-in from day one.
+            - generic [ref=e162]:
+              - img [ref=e164]
+              - heading "API-First Design" [level=3] [ref=e166]
+              - paragraph [ref=e167]: Full REST API and MCP integration. Automate workflows and build custom solutions.
+        - generic [ref=e170]:
+          - generic [ref=e171]:
+            - generic [ref=e172]: 50+
+            - generic [ref=e173]: Languages Supported
+          - generic [ref=e174]:
+            - generic [ref=e175]: <2s
+            - generic [ref=e176]: Transcription Latency
+          - generic [ref=e177]:
+            - generic [ref=e178]: 99.9%
+            - generic [ref=e179]: Service Uptime
+        - generic [ref=e181]:
+          - heading "Start transcribing your meetings" [level=2] [ref=e182]
+          - paragraph [ref=e183]: Free to get started. Sign in with your Google account and connect your first meeting in under a minute.
+          - button "Sign in with Google" [ref=e184]:
+            - text: Sign in with Google
+            - img
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - img [ref=e187]
+              - text: No credit card required
+            - generic [ref=e190]:
+              - img [ref=e191]
+              - text: Setup in 60 seconds
+        - generic [ref=e195]:
+          - generic [ref=e199]: © 2026 Lexor. All rights reserved.
+          - generic [ref=e200]:
+            - link "Documentation" [ref=e201] [cursor=pointer]:
+              - /url: https://docs.vexa.ai/
+            - link "GitHub" [ref=e202] [cursor=pointer]:
+              - /url: https://github.com/Vexa-ai/vexa
+            - generic [ref=e203]: Open Source
+  - region "Notifications alt+T"
