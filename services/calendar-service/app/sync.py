@@ -229,49 +229,53 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
     logger.info(f"Schedule check: found {len(events)} pending events")
 
     for event in events:
-        # Get user's API key for meeting-api auth
-        user_result = await db.execute(select(User).where(User.id == event.user_id))
-        user = user_result.scalar_one_or_none()
-        if not user:
-            continue
-
-        # Read user preferences for auto-join and leave time
-        user_prefs = (user.data or {}).get("google_calendar", {}).get("preferences", {})
-        leave_after_minutes = user_prefs.get("leave_after_minutes")
-        auto_join = user_prefs.get("auto_join", True)
-        default_bot_name = user_prefs.get("default_bot_name", ".")
-        video_enabled = user_prefs.get("video_enabled", True)
-
-        if not auto_join:
-            continue
-
-        # Get user's API token for proper ownership of the meeting
-        user_token = await _get_user_api_token(user.id, db)
-        api_key = user_token or BOT_API_TOKEN
-
-        # Bot name priority: event-specific > user default > hardcoded default
-        bot_name = event.bot_name or default_bot_name
-
-        bot_payload = {
-            "platform": event.platform,
-            "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
-            "meeting_url": event.meeting_url,
-            "bot_name": bot_name,
-            "video": video_enabled,
-            "name": event.title,
-        }
-
-        # Calculate auto-leave: calendar end time + extra minutes
-        # Default (leave_after_minutes=0): bot leaves at calendar end time
-        # Bot also leaves early if host leaves (handled by platform callbacks)
-        if event.end_time:
-            remaining_ms = int((event.end_time - now).total_seconds() * 1000) + leave_after_minutes * 60 * 1000
-            if remaining_ms > 0:
-                bot_payload["automatic_leave"] = {
-                    "max_bot_time": remaining_ms,
-                }
-
         try:
+            # Get user's API key for meeting-api auth
+            user_result = await db.execute(select(User).where(User.id == event.user_id))
+            user = user_result.scalar_one_or_none()
+            if not user:
+                continue
+
+            # Read user preferences for auto-join and leave time
+            user_prefs = (user.data or {}).get("google_calendar", {}).get("preferences", {})
+            leave_after_minutes = user_prefs.get("leave_after_minutes", 0)
+            auto_join = user_prefs.get("auto_join", True)
+            default_bot_name = user_prefs.get("default_bot_name", ".")
+            video_enabled = user_prefs.get("video_enabled", True)
+
+            if not auto_join:
+                continue
+
+            # Get user's API token for proper ownership of the meeting
+            user_token = await _get_user_api_token(user.id, db)
+            api_key = user_token or BOT_API_TOKEN
+
+            # Bot name priority: event-specific > user default > hardcoded default
+            bot_name = event.bot_name or default_bot_name
+
+            bot_payload = {
+                "platform": event.platform,
+                "native_meeting_id": _extract_native_id(event.meeting_url, event.platform),
+                "meeting_url": event.meeting_url,
+                "bot_name": bot_name,
+                "video": video_enabled,
+                "name": event.title,
+            }
+
+            # Google Meet: use authenticated mode to bypass reCAPTCHA
+            if event.platform == "google_meet":
+                bot_payload["authenticated"] = True
+
+            # Calculate auto-leave: calendar end time + extra minutes
+            # Default (leave_after_minutes=0): bot leaves at calendar end time
+            # Bot also leaves early if host leaves (handled by platform callbacks)
+            if event.end_time:
+                remaining_ms = int((event.end_time - now).total_seconds() * 1000) + leave_after_minutes * 60 * 1000
+                if remaining_ms > 0:
+                    bot_payload["automatic_leave"] = {
+                        "max_bot_time": remaining_ms,
+                    }
+
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"{MEETING_API_URL}/bots",
@@ -309,6 +313,14 @@ async def schedule_upcoming_bots(db: AsyncSession) -> int:
                 )
         except Exception as e:
             logger.error(f"Failed to schedule bot for event {event.id}: {e}")
+            try:
+                await db.execute(
+                    update(CalendarEvent)
+                    .where(CalendarEvent.id == event.id)
+                    .values(status="failed")
+                )
+            except Exception:
+                pass
 
     await db.commit()
     return scheduled

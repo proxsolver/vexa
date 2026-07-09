@@ -274,6 +274,7 @@ services:
       - BOT_IMAGE_NAME=${BROWSER_IMAGE}
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-vexa}_vexa
       - TTS_SERVICE_URL=http://tts-service:8002
+      - TRANSCRIPTION_SERVICE_URL=${TRANSCRIPTION_SERVICE_URL}
       - POST_MEETING_HOOKS=${POST_MEETING_HOOKS:-}
       - TRANSCRIPTION_COLLECTOR_URL=http://meeting-api:8080
       - STORAGE_BACKEND=${STORAGE_BACKEND:-minio}
@@ -292,6 +293,9 @@ services:
       - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT:-}
       - RECORDING_ENABLED=${RECORDING_ENABLED:-true}
       - CAPTURE_MODES=${CAPTURE_MODES:-audio}
+      - VIDEO_CODEC=${VIDEO_CODEC:-libvpx-vp9}
+      - VIDEO_QUALITY=${VIDEO_QUALITY:-good}
+      - VIDEO_FPS=${VIDEO_FPS:-15}
       - TRANSCRIPTION_SERVICE_URL=${TRANSCRIPTION_SERVICE_URL:-}
       - TRANSCRIPTION_SERVICE_TOKEN=${TRANSCRIPTION_SERVICE_TOKEN:-}
       - TRANSCRIPTION_GATEWAY_URL=${TRANSCRIPTION_GATEWAY_URL:-}
@@ -407,6 +411,28 @@ services:
       - vexa
     restart: unless-stopped
 
+  transcription-service:
+    build:
+      context: ../../services/transcription-service
+      dockerfile: Dockerfile.cpu
+    image: vexaai/transcription-service:${IMAGE_TAG}
+    mem_limit: 2g
+    expose:
+      - "8023"
+    environment:
+      - MODEL_SIZE=${TRANSCRIPTION_MODEL_SIZE:-small}
+      - DEVICE=cpu
+      - COMPUTE_TYPE=int8
+      - CPU_THREADS=${TRANSCRIPTION_CPU_THREADS:-4}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PORT=8023
+    volumes:
+      - transcription-models:/app/models
+    init: true
+    networks:
+      - vexa
+    restart: unless-stopped
+
   calendar-service:
     build:
       context: ../..
@@ -448,6 +474,7 @@ volumes:
   minio-data:
   recordings-data:
   tts-voices:
+  transcription-models:
 
 networks:
   vexa:

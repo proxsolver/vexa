@@ -198,24 +198,29 @@ export async function prepareZoomWebMeeting(page: Page | null, botConfig: BotCon
   // Belt-and-braces mute after admission. join.ts mutes in the preview,
   // but clicking "Join with Computer Audio" or Zoom's meeting-side state
   // can re-enable the mic. Voice agent bots keep mic unmuted for TTS.
+  //
+  // CRITICAL: Zoom Web mic state is ambiguous. aria-label can be just "audio",
+  // and button classes aren't reliable. The ONLY reliable signal is whether
+  // the button contains a slash-icon (muted) or microphone icon (unmuted).
+  // Force-mute on admission to avoid accidental mic activation.
   const isVoiceAgent = !!botConfig.voiceAgentEnabled;
   if (!isVoiceAgent) {
     try {
       const muteBtn = page.locator(zoomAudioButtonSelector).first();
       if (await muteBtn.isVisible({ timeout: 2000 })) {
-        const ariaLabel = (await muteBtn.getAttribute('aria-label') || '').toLowerCase();
-        const isCurrentlyUnmuted = ariaLabel.includes('mute') && !ariaLabel.includes('unmute');
-        if (isCurrentlyUnmuted) {
-          await muteBtn.click();
-          log(`[Zoom Web] Muted mic post-admission (aria-label was "${ariaLabel}")`);
-        } else {
-          log(`[Zoom Web] Mic already muted post-admission (aria-label="${ariaLabel}")`);
-        }
+        const ariaLabel = await muteBtn.getAttribute('aria-label') || '';
+        const buttonClass = await muteBtn.getAttribute('class') || '';
+
+        // UNCONDITIONAL MUTE for recorder bots. The risk of accidental mic
+        // activation (appearing as "talking" to other participants) outweighs
+        // the redundant click cost. Voice agent bots skip this (need mic for TTS).
+        await muteBtn.click();
+        log(`[Zoom Web] Force-muted mic post-admission for recorder bot (was: aria-label="${ariaLabel}", class="${buttonClass}")`);
       } else {
         log('[Zoom Web] Mic button not visible post-admission (may be in waiting room still)');
       }
     } catch (e: any) {
-      log(`[Zoom Web] Could not verify mic mute post-admission: ${e.message}`);
+      log(`[Zoom Web] Could not force-mute mic post-admission: ${e.message}`);
     }
   }
 

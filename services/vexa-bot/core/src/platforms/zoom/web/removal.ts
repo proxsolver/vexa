@@ -123,9 +123,10 @@ export function startZoomWebRemovalMonitor(
         const elapsed = ((Date.now() - joinedAtMs) / 1000).toFixed(1);
         log(`[Zoom Web] Leave button miss #${consecutiveLeaveButtonMisses} (${elapsed}s after join) — URL: ${url}, title: "${title}"`);
 
-        // During grace period or on audio-init URLs, don't act on Leave button absence.
+        // During grace period AND on audio-init URLs, don't act on Leave button absence.
         // Zoom's UI hasn't fully loaded yet — Leave button simply doesn't exist.
-        if (Date.now() - joinedAtMs < GRACE_PERIOD_MS || isZoomAudioInitUrl(url)) {
+        // Changed OR to AND: /wc/{id}/join URL persists during meeting, so don't suppress indefinitely.
+        if (Date.now() - joinedAtMs < GRACE_PERIOD_MS && isZoomAudioInitUrl(url)) {
           log(`[Zoom Web] Suppressing Leave button miss — still in grace/audio-init phase`);
         } else {
           // Navigated off Zoom entirely — immediate exit (no counter needed)

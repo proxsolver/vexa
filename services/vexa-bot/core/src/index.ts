@@ -1442,8 +1442,22 @@ async function initPerSpeakerPipeline(botConfig: BotConfig): Promise<boolean> {
             const lang = explicitLang || result.language || 'en';
             const bufStart = speakerManager!.getBufferStartMs(speakerId);
             const nowMs = Date.now();
-            const startSec = (bufStart - segmentPublisher.sessionStartMs) / 1000;
-            const endSec = (nowMs - segmentPublisher.sessionStartMs) / 1000;
+            let startSec = (bufStart - segmentPublisher.sessionStartMs) / 1000;
+            let endSec = (nowMs - segmentPublisher.sessionStartMs) / 1000;
+
+            // Clamp negative start times to 0. This can happen when bufferStartMs
+            // is set before sessionStartMs is reset (e.g., speaker added before
+            // audio capture starts). The sessionStartMs reset in audio-pipeline
+            // doesn't retroactively update existing bufferStartMs values.
+            let effectiveBufStart = bufStart;
+            if (startSec < 0) {
+              startSec = 0;
+              effectiveBufStart = segmentPublisher.sessionStartMs;
+              log(`[Segment timing] Clamped negative startSec to 0 (bufStart=${bufStart}, sessionStartMs=${segmentPublisher.sessionStartMs})`);
+            }
+            if (endSec < 0) {
+              endSec = 0;
+            }
 
             // Pending: one entry per Whisper segment (preserves sentence boundaries)
             const whisperSegments = result.segments || [{ text: result.text, start: 0, end: 0 }];
@@ -1454,8 +1468,8 @@ async function initPerSpeakerPipeline(botConfig: BotConfig): Promise<boolean> {
                 start: startSec + (ws.start || 0),
                 end: startSec + (ws.end || 0),
                 language: lang, completed: false,
-                absolute_start_time: new Date(bufStart + (ws.start || 0) * 1000).toISOString(),
-                absolute_end_time: new Date(bufStart + (ws.end || 0) * 1000).toISOString(),
+                absolute_start_time: new Date(effectiveBufStart + (ws.start || 0) * 1000).toISOString(),
+                absolute_end_time: new Date(effectiveBufStart + (ws.end || 0) * 1000).toISOString(),
               }))
               .filter(s => s.text);
 
@@ -1499,8 +1513,30 @@ async function initPerSpeakerPipeline(botConfig: BotConfig): Promise<boolean> {
       }
       const explicitLang = currentLanguage && currentLanguage !== 'auto' ? currentLanguage : null;
       const lang = explicitLang || lastDetectedLanguage.get(speakerId) || 'en';
-      const startSec = (bufferStartMs - segmentPublisher.sessionStartMs) / 1000;
-      const endSec = (bufferEndMs - segmentPublisher.sessionStartMs) / 1000;
+      let startSec = (bufferStartMs - segmentPublisher.sessionStartMs) / 1000;
+      let endSec = (bufferEndMs - segmentPublisher.sessionStartMs) / 1000;
+
+      // Clamp negative start times to 0. This can happen when bufferStartMs
+      // is set before sessionStartMs is reset (e.g., speaker added before
+      // audio capture starts). The sessionStartMs reset in audio-pipeline
+      // doesn't retroactively update existing bufferStartMs values.
+      let effectiveBufStart = bufferStartMs;
+      let effectiveBufEnd = bufferEndMs;
+      if (startSec < 0) {
+        startSec = 0;
+        effectiveBufStart = segmentPublisher.sessionStartMs;
+        log(`[Segment timing] Clamped negative startSec to 0 in onSegmentConfirmed (bufStart=${bufferStartMs}, sessionStartMs=${segmentPublisher.sessionStartMs})`);
+      }
+      if (endSec < 0) {
+        endSec = 0;
+        effectiveBufEnd = segmentPublisher.sessionStartMs;
+      }
+      // Ensure endSec >= startSec
+      if (endSec < startSec) {
+        endSec = startSec;
+        effectiveBufEnd = effectiveBufStart;
+      }
+
       const fullSegmentId = `${segmentPublisher.sessionUid}:${segmentId}`;
 
       const confirmLatencyMs = bufferEndMs - bufferStartMs;
@@ -1515,8 +1551,8 @@ async function initPerSpeakerPipeline(botConfig: BotConfig): Promise<boolean> {
       confirmedBatches.get(speakerId)!.push({
         speaker: speakerName, text: transcript, start: startSec, end: endSec,
         language: lang, completed: true, segment_id: fullSegmentId,
-        absolute_start_time: new Date(bufferStartMs).toISOString(),
-        absolute_end_time: new Date(bufferEndMs).toISOString(),
+        absolute_start_time: new Date(effectiveBufStart).toISOString(),
+        absolute_end_time: new Date(effectiveBufEnd).toISOString(),
       });
     };
 

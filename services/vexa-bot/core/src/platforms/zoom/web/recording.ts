@@ -14,6 +14,7 @@ let pipeline: UnifiedRecordingPipeline | null = null;
 let speakerPollInterval: NodeJS.Timeout | null = null;
 let lastActiveSpeaker: string | null = null;
 let popupDismissInterval: NodeJS.Timeout | null = null;
+let zoomParticipantMonitoringInterval: NodeJS.Timeout | null = null;
 
 /** Current DOM-polled active speaker — used by per-speaker pipeline as fallback name */
 export function getLastActiveSpeaker(): string | null {
@@ -93,6 +94,15 @@ export async function startZoomWebRecording(page: Page | null, botConfig: BotCon
   // Start speaker detection polling via DOM
   startSpeakerPolling(page, botConfig);
 
+  // Start participant monitoring for auto-leave
+  startZoomParticipantMonitoring(page, botConfig, () => {
+    // Callback when timeout reached — stop recording
+    if (recordingStopResolver) {
+      recordingStopResolver();
+      recordingStopResolver = null;
+    }
+  });
+
   // Periodically dismiss popups (AI Companion, chat guest tooltip, etc.)
   popupDismissInterval = setInterval(() => {
     dismissZoomPopups(page).catch(() => {});
@@ -128,6 +138,12 @@ export async function stopZoomWebRecording(): Promise<void> {
   if (popupDismissInterval) {
     clearInterval(popupDismissInterval);
     popupDismissInterval = null;
+  }
+
+  // Stop participant monitoring
+  if (zoomParticipantMonitoringInterval) {
+    clearInterval(zoomParticipantMonitoringInterval);
+    zoomParticipantMonitoringInterval = null;
   }
 
   lastActiveSpeaker = null;
@@ -206,4 +222,69 @@ function startSpeakerPolling(page: Page, botConfig: BotConfig): void {
       // Page may be navigating — ignore
     }
   }, 250);
+}
+
+// ---- Participant monitoring for auto-leave ----
+
+/**
+ * Start monitoring participant count for automatic leave when everyone leaves.
+ * Similar to Google Meet's setupGoogleMeetingMonitoring but adapted for Zoom Web.
+ */
+function startZoomParticipantMonitoring(
+  page: Page,
+  botConfig: BotConfig,
+  onTimeoutReached: () => void
+): void {
+  const leaveCfg = (botConfig.automaticLeave) || {};
+  // Config values are in milliseconds, convert to seconds
+  const everyoneLeftTimeoutMs = Number(leaveCfg.everyoneLeftTimeout ?? 60000); // Default 60s (60000ms)
+  const everyoneLeftTimeoutSeconds = Math.floor(everyoneLeftTimeoutMs / 1000);
+
+  let aloneTime = 0;
+  let lastParticipantCount = 0;
+  let monitoringStopped = false;
+
+  log(`[Zoom Web] Starting participant monitoring (timeout: ${everyoneLeftTimeoutSeconds}s)`);
+
+  zoomParticipantMonitoringInterval = setInterval(async () => {
+    if (monitoringStopped || !page || page.isClosed()) return;
+
+    try {
+      // Count participants using DOM selector
+      const participantCount = await page.evaluate(() => {
+        // Count video avatar containers (each participant has one)
+        const avatars = document.querySelectorAll('.video-avatar__avatar');
+        return avatars.length;
+      });
+
+      if (participantCount !== lastParticipantCount) {
+        log(`[Zoom Web] Participant count: ${lastParticipantCount} → ${participantCount}`);
+        lastParticipantCount = participantCount;
+      }
+
+      // Check if bot is alone (0 or 1 participant = only the bot)
+      if (participantCount <= 1) {
+        aloneTime++;
+
+        if (aloneTime % 10 === 0 && aloneTime > 0) {
+          // Log every 10 seconds
+          log(`[Zoom Web] Bot has been alone for ${aloneTime}s. Will leave in ${everyoneLeftTimeoutSeconds - aloneTime}s.`);
+        }
+
+        if (aloneTime >= everyoneLeftTimeoutSeconds) {
+          monitoringStopped = true;
+          log(`[Zoom Web] Timeout reached: bot alone for ${aloneTime}s. Leaving...`);
+          onTimeoutReached();
+        }
+      } else {
+        // Reset timer if others are present
+        if (aloneTime > 0) {
+          log(`[Zoom Web] Others present, resetting alone timer (was ${aloneTime}s)`);
+          aloneTime = 0;
+        }
+      }
+    } catch (e: any) {
+      // Page may be navigating — ignore errors
+    }
+  }, 1000); // Check every second
 }

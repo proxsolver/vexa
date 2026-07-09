@@ -59,12 +59,12 @@ export async function joinGoogleMeeting(
     }
 
     // Authenticated users may see different buttons:
-    // - "Join now" — standard authenticated join
-    // - "Switch here" — same account already in the meeting
-    // - "Ask to join" — cookies didn't load (fallback to anonymous)
-    const joinNowSelector = 'button:has-text("Join now")';
-    const switchHereSelector = 'button:has-text("Switch here")';
-    const askToJoinSelector = googleJoinButtonSelectors[0];
+    // - "Join now" / "지금 참여" — standard authenticated join
+    // - "Switch here" / "여기로 전환" — same account already in the meeting
+    // - "Ask to join" / "참여 요청" — needs host admission
+    const joinNowSelector = 'button:has-text("Join now"), button:has-text("지금 참여"), button:has-text("參加"), button:has-text("参加する")';
+    const switchHereSelector = 'button:has-text("Switch here"), button:has-text("여기로 전환")';
+    const askToJoinSelector = 'button:has-text("Ask to join"), button:has-text("참여 요청"), button:has-text("參加をリクエスト"), button:has-text("请求加入")';
 
     try {
       // Race: wait for any join button

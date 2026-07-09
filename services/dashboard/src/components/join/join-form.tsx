@@ -43,7 +43,7 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
   });
   const [language, setLanguage] = useState("auto");
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
