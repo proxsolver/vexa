@@ -132,7 +132,12 @@ RUN mkdir -p /app/vexa-bot/storage/screenshots /app/vexa-bot/storage/logs /app/v
 
 # Copy entrypoint script
 COPY core/entrypoint.sh /app/vexa-bot/entrypoint.sh
-RUN chmod +x /app/vexa-bot/entrypoint.sh
+RUN chmod +x /app/vexa-bot/entrypoint.sh && \
+    # runtime-api profiles.yaml (meeting/browser-session) still execs the
+    # pre-restructure path /app/entrypoint.sh — keep both paths valid so a
+    # rebuilt image boots under deployed runtime-apis of either vintage
+    # (release 260904-zoom-alone-timeout, triage pass 2)
+    ln -sf /app/vexa-bot/entrypoint.sh /app/entrypoint.sh
 
 # Set environment
 ENV DISPLAY=:99
