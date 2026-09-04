@@ -35,6 +35,10 @@ export const zoomVideoButtonSelector = 'button.send-video-container__btn';
 // Participants button: aria-label contains "participants list"
 export const zoomParticipantsButtonSelector = 'button[aria-label*="participants list"]';
 
+// Participants count badge on the footer Participants button — counts the
+// full roster, unlike video tiles which only exist for the visible viewport
+export const zoomParticipantsCountBadgeSelector = '.footer-button__number-counter';
+
 // Chat button
 export const zoomChatButtonSelector = 'button[aria-label*="chat panel"]';
 

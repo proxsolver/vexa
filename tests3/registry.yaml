@@ -1958,6 +1958,62 @@ ZOOM_WEB_UPLOADS_CHUNKS_PERIODICALLY:
   - helm
   state: stateless
   max_duration_sec: 5
+ZOOM_ALONE_COUNT_FROM_BADGE:
+  proves: "Zoom Web alone-detection reads participant count from the Participants button badge (roster), not from visible video-tile count (viewport)"
+  symptom: "Bot counts .video-avatar__avatar tiles; Zoom Web renders only visible tiles, so speaker-view / cameras-off meetings look empty → bot leaves live meetings at exactly max_time_left_alone (prod meetings 40/41/42/44: all died at 900s+~12s)"
+  found: '2026-09-04'
+  fix_release: 260904-zoom-alone-timeout
+  type: grep
+  file: services/vexa-bot/core/src/platforms/zoom/web/alone-monitor.ts
+  must_match: zoomParticipantsCountBadgeSelector
+  must_not_match: querySelectorAll\('\.video-avatar__avatar'\)
+  modes:
+  - lite
+  - compose
+  - helm
+  state: stateless
+  max_duration_sec: 5
+ZOOM_ALONE_AUDIO_CROSS_VALIDATE:
+  proves: "Zoom Web alone-timer consults Node-side audio activity (#285 Layer-2 parity with Google Meet) — recent audio vetoes alone-time accrual"
+  symptom: "DOM participant count is the single point of failure; count-signal loss converts directly into a false left-alone leave of a live meeting"
+  found: '2026-09-04'
+  fix_release: 260904-zoom-alone-timeout
+  type: grep
+  file: services/vexa-bot/core/src/platforms/zoom/web/alone-monitor.ts
+  must_match: 'lastAudioActivityTs: lastZoomAudioActivityTs'
+  modes:
+  - lite
+  - compose
+  - helm
+  state: stateless
+  max_duration_sec: 5
+ZOOM_LEFT_ALONE_REASON_REPORTED:
+  proves: "Zoom Web alone-timeout exit surfaces ZOOM_BOT_LEFT_ALONE_TIMEOUT so runMeetingFlow records reason left_alone_timeout instead of the exiting-callback schema default"
+  symptom: "Alone-timeout exits recorded as self_initiated_leave / completion_reason 'stopped'; triage misreads them as user-requested stops (mislabeled 4 prod leaves)"
+  found: '2026-09-04'
+  fix_release: 260904-zoom-alone-timeout
+  type: grep
+  file: services/vexa-bot/core/src/platforms/zoom/web/recording.ts
+  must_match: ZOOM_BOT_LEFT_ALONE_TIMEOUT
+  modes:
+  - lite
+  - compose
+  - helm
+  state: stateless
+  max_duration_sec: 5
+ZOOM_ALONE_TICK_UNIT:
+  proves: "computeZoomAloneTick unit suite passes: badge count resets timer; unreadable count freezes it; recent audio vetoes accrual; silent empty room still times out at 900s"
+  symptom: "Alone-timer decision logic has zero test coverage; regressions ship silently"
+  found: '2026-09-04'
+  fix_release: 260904-zoom-alone-timeout
+  type: script
+  dispatch: SHELL_CHECK
+  script: tests3/checks/scripts/zoom-alone-tick-unit.sh
+  from_tier: static
+  modes:
+  - compose
+  state: stateless
+  max_duration_sec: 60
 PLATFORM_RECORDING_TS_LINE_BUDGET:
   proves: "after Pack U unification, every platform recording.ts is ≤200 LOC (just selectors + DOM glue + capture-source instantiation; all upload + buffer + lifecycle logic moved to shared)"
   symptom: "duplicated capture code rots out of sync; Pack M-style fix-once-apply-N drift"

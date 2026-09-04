@@ -5,16 +5,17 @@ import { getRawCaptureService, getSegmentPublisher, feedZoomAudio } from '../../
 import { log } from '../../../utils';
 import { PulseAudioCapture, UnifiedRecordingPipeline } from '../../../services/audio-pipeline';
 import { zoomAudioButtonSelector, zoomParticipantNameSelector } from './selectors';
+import { startZoomParticipantMonitoring, stopZoomParticipantMonitoring, trackZoomAudioActivity } from './alone-monitor';
 import { dismissZoomPopups } from './prepare';
 import { startZoomRichObservation } from './observe';
 
 let recordingService: RecordingService | null = null;
 let recordingStopResolver: (() => void) | null = null;
+let recordingStopRejecter: ((err: Error) => void) | null = null;
 let pipeline: UnifiedRecordingPipeline | null = null;
 let speakerPollInterval: NodeJS.Timeout | null = null;
 let lastActiveSpeaker: string | null = null;
 let popupDismissInterval: NodeJS.Timeout | null = null;
-let zoomParticipantMonitoringInterval: NodeJS.Timeout | null = null;
 
 /** Current DOM-polled active speaker — used by per-speaker pipeline as fallback name */
 export function getLastActiveSpeaker(): string | null {
@@ -72,6 +73,7 @@ export async function startZoomWebRecording(page: Page | null, botConfig: BotCon
       recordingService = new RecordingService(botConfig.meeting_id, sessionUid);
       const source = new PulseAudioCapture({
         onRawAudio: (audioData: Float32Array) => {
+          trackZoomAudioActivity(audioData);
           const speakerName = getLastActiveSpeaker();
           if (speakerName) {
             feedZoomAudio(speakerName, audioData).catch(() => {});
@@ -96,10 +98,16 @@ export async function startZoomWebRecording(page: Page | null, botConfig: BotCon
 
   // Start participant monitoring for auto-leave
   startZoomParticipantMonitoring(page, botConfig, () => {
-    // Callback when timeout reached — stop recording
-    if (recordingStopResolver) {
-      recordingStopResolver();
+    // Alone-timeout: reject the blocking wait with the shared-flow token so
+    // runMeetingFlow records the exit as left_alone_timeout instead of the
+    // exiting-callback schema default (which mislabeled prod meetings
+    // 40/41/42/44 as user-requested "stopped"). Pipeline shutdown still runs
+    // in stopZoomWebRecording via the graceful-leave path.
+    if (recordingStopRejecter) {
+      const rejecter = recordingStopRejecter;
+      recordingStopRejecter = null;
       recordingStopResolver = null;
+      rejecter(new Error('ZOOM_BOT_LEFT_ALONE_TIMEOUT'));
     }
   });
 
@@ -119,9 +127,11 @@ export async function startZoomWebRecording(page: Page | null, botConfig: BotCon
     }
   }
 
-  // Block until stopZoomWebRecording() is called
-  await new Promise<void>((resolve) => {
+  // Block until stopZoomWebRecording() is called or the alone-timeout
+  // rejects with ZOOM_BOT_LEFT_ALONE_TIMEOUT
+  await new Promise<void>((resolve, reject) => {
     recordingStopResolver = resolve;
+    recordingStopRejecter = reject;
   });
 }
 
@@ -141,10 +151,7 @@ export async function stopZoomWebRecording(): Promise<void> {
   }
 
   // Stop participant monitoring
-  if (zoomParticipantMonitoringInterval) {
-    clearInterval(zoomParticipantMonitoringInterval);
-    zoomParticipantMonitoringInterval = null;
-  }
+  stopZoomParticipantMonitoring();
 
   lastActiveSpeaker = null;
 
@@ -153,6 +160,7 @@ export async function stopZoomWebRecording(): Promise<void> {
     recordingStopResolver();
     recordingStopResolver = null;
   }
+  recordingStopRejecter = null;
 
   // Stop the unified pipeline. This kills parecord, emits the final chunk
   // with isFinal=true, and drains the upload queue so meeting-api flips
@@ -224,67 +232,5 @@ function startSpeakerPolling(page: Page, botConfig: BotConfig): void {
   }, 250);
 }
 
-// ---- Participant monitoring for auto-leave ----
-
-/**
- * Start monitoring participant count for automatic leave when everyone leaves.
- * Similar to Google Meet's setupGoogleMeetingMonitoring but adapted for Zoom Web.
- */
-function startZoomParticipantMonitoring(
-  page: Page,
-  botConfig: BotConfig,
-  onTimeoutReached: () => void
-): void {
-  const leaveCfg = (botConfig.automaticLeave) || {};
-  // Config values are in milliseconds, convert to seconds
-  const everyoneLeftTimeoutMs = Number(leaveCfg.everyoneLeftTimeout ?? 60000); // Default 60s (60000ms)
-  const everyoneLeftTimeoutSeconds = Math.floor(everyoneLeftTimeoutMs / 1000);
-
-  let aloneTime = 0;
-  let lastParticipantCount = 0;
-  let monitoringStopped = false;
-
-  log(`[Zoom Web] Starting participant monitoring (timeout: ${everyoneLeftTimeoutSeconds}s)`);
-
-  zoomParticipantMonitoringInterval = setInterval(async () => {
-    if (monitoringStopped || !page || page.isClosed()) return;
-
-    try {
-      // Count participants using DOM selector
-      const participantCount = await page.evaluate(() => {
-        // Count video avatar containers (each participant has one)
-        const avatars = document.querySelectorAll('.video-avatar__avatar');
-        return avatars.length;
-      });
-
-      if (participantCount !== lastParticipantCount) {
-        log(`[Zoom Web] Participant count: ${lastParticipantCount} → ${participantCount}`);
-        lastParticipantCount = participantCount;
-      }
-
-      // Check if bot is alone (0 or 1 participant = only the bot)
-      if (participantCount <= 1) {
-        aloneTime++;
-
-        if (aloneTime % 10 === 0 && aloneTime > 0) {
-          // Log every 10 seconds
-          log(`[Zoom Web] Bot has been alone for ${aloneTime}s. Will leave in ${everyoneLeftTimeoutSeconds - aloneTime}s.`);
-        }
-
-        if (aloneTime >= everyoneLeftTimeoutSeconds) {
-          monitoringStopped = true;
-          log(`[Zoom Web] Timeout reached: bot alone for ${aloneTime}s. Leaving...`);
-          onTimeoutReached();
-        }
-      } else {
-        // Reset timer if others are present
-        if (aloneTime > 0) {
-          log(`[Zoom Web] Others present, resetting alone timer (was ${aloneTime}s)`);
-          aloneTime = 0;
-        }
-      }
-    } catch (e: any) {
-      // Page may be navigating — ignore errors
-    }
-  }, 1000); // Check every second
-}
+// Participant monitoring for auto-leave lives in ./alone-monitor.ts
+// (release 260904-zoom-alone-timeout).
