@@ -40,3 +40,35 @@ recur (confirming the flaky-check classification).
 | TRANSCRIPTION_UP, CHART_VERSION_CURRENT, PLATFORM_RECORDING_TS_LINE_BUDGET, FINALIZER_BEFORE_STATUS_FLIP | unchanged | same classes as pass 1. |
 
 Stuck `Created` test containers (meetings 45-51, test@vexa.ai) removed.
+
+## Pass 3 — validate @ 2026-09-04 22:43 (compose, single-host) — scope-green
+
+Entrypoint-compat rebuild (d23925c7) verified live:
+**BOT_STATUS_TRANSITIONS PASS** (real bot spawned from new image, booted,
+status callbacks flowed), **BROWSER_SESSION_CDP PASS**. Scope checks 4/4
+PASS across all three passes.
+
+Remaining fails — all previously classified, none regression:
+TRANSCRIPTION_TOKEN_VALID + TRANSCRIPTION_UP (environment: docker-internal
+URL from host), CHART_VERSION_CURRENT (#228 pre-existing),
+PLATFORM_RECORDING_TS_LINE_BUDGET + FINALIZER_BEFORE_STATUS_FLIP
+(pre-existing).
+
+### Gate analysis — structural
+
+`report-gate` = 0-10% confidence on 8 features because the aggregator
+expects the FULL provisioned matrix (lite+compose+helm VMs, expensive
+tiers). That infra was retired with the cloud VMs; this single host cannot
+reach those thresholds for ANY release, independent of this diff. The
+mechanical full-gate is therefore *structurally* red here — a harness/infra
+gap, not a verdict on this release.
+
+### Handoff to human (decision required)
+
+Scope verdict: green (4/4 proves + live bot-spawn contract checks).
+Deviation to accept (or reject): treat scope-green as gate-green for this
+single-host cycle. Remaining human_verify (the REAL confirmation):
+1. Real Zoom meeting, 2+ humans, cameras OFF, audio flowing → bot still
+   present past 16 min; meeting stays `active`.
+2. Everyone leaves, meeting stays open → bot leaves ~15 min later;
+   `status_transition` records `left_alone_timeout` (not "stopped").
