@@ -1,0 +1,110 @@
+release_id: 260904-zoom-alone-timeout
+codename: zoom-alone-false-positive
+branch: fix/zoom-alone-timeout
+summary: |
+  Zoom Web bot abandons live meetings at exactly max_time_left_alone (900 s)
+  because its "am I alone" signal counts visible video tiles
+  (.video-avatar__avatar), and the Zoom Web client only renders visible
+  tiles — speaker view / cameras-off meetings look like an empty room
+  forever. 4/4 production Zoom meetings (IDs 40, 41, 42, 44) died at
+  900 s + ~12 s. Fix: (1) count participants from the footer Participants
+  button badge, not tiles; (2) port the #285 Layer-2 audio cross-validate
+  guard (already proven on Google Meet) to Zoom's Node-side monitor;
+  (3) report the alone-timeout exit as left_alone_timeout instead of the
+  misleading schema-default self_initiated_leave/stopped.
+
+deployments:
+  modes: [compose]
+  notes:
+    lite: "not applicable — fix is entirely inside the vexa-bot image; static locks still run everywhere by nature"
+    helm: "not applicable — same bot image; no chart/infra surface touched"
+
+issues:
+  - id: zoom-alone-false-positive
+    source: human
+    ref: "project-owner chat report 2026-09-04 (meeting 44)"
+    problem: |
+      Zoom Web bot leaves live meetings with real participants at exactly
+      15 min (max_time_left_alone). Production evidence: meetings 40, 41,
+      42, 44 — every Zoom meeting on record — ended 900 s + ~12 s after
+      going active while audio chunks and chat messages were still flowing.
+    hypothesis: |
+      startZoomParticipantMonitoring (zoom/web/recording.ts:249) counts
+      document.querySelectorAll('.video-avatar__avatar') once per second.
+      Zoom Web renders only visible tiles, so in speaker view or with
+      cameras off the count is <= 1 for the whole meeting; aloneTime never
+      resets and hits everyoneLeftTimeout (900 s) deterministically.
+    gap_analysis: |
+      No check exercises the alone-timer decision path for Zoom Web.
+      BOT_ZOOM_LONG_RECORDING_NO_LEAK proves a >= 60 s recording survives,
+      far below the 900 s trigger; no unit test covers
+      startZoomParticipantMonitoring, and no static lock pins the
+      participant-count source. The equivalent Google Meet bug (#285) got
+      its guard, but no check enforced parity across platforms.
+    new_checks:
+      - ZOOM_ALONE_COUNT_FROM_BADGE
+      - ZOOM_ALONE_AUDIO_CROSS_VALIDATE
+      - ZOOM_ALONE_TICK_UNIT
+    fix_commits: [f827cf6e]
+    # Decided design (no-fallbacks rule — each layer is an explicit decision,
+    # not a "just in case" path; precedent: #285 Layer 2 on Google Meet):
+    #   Layer 1 (primary count): parse participant count from the footer
+    #     Participants button badge (.footer-button__number-counter, with
+    #     aria-label parse of button[aria-label*="participants list"] as the
+    #     second read of the same widget). View-mode and camera independent.
+    #   Layer 2 (veto): Node-side lastAudioActivityTs updated by a cheap
+    #     peak scan in the existing PulseAudioCapture.onRawAudio hook
+    #     (same 0.005 RMS threshold + 1-of-32 stride as googlemeet
+    #     recording.ts:124-137). Audio activity within 120 s vetoes
+    #     alone-time accrual.
+    #   Unreadable-count semantics (explicit decision): if neither badge nor
+    #     aria-label yields a count this tick, FREEZE aloneTime — no accrual,
+    #     no reset (missing data is not evidence of absence — the old behavior
+    #     turned signal loss into a guaranteed leave). Audio veto still
+    #     applies. A room that stays badge-unreadable AND silent is reaped by
+    #     the existing server-side max_bot_time backstop
+    #     (meeting-api meetings.py, max_bot_time_exceeded), not by the alone
+    #     timer. [Corrected during develop: the original sentence here said
+    #     such a room "still leaves at 15 min", contradicting the approved
+    #     ZOOM_ALONE_TICK_UNIT check text ("unreadable count freezes timer");
+    #     the check text governs.]
+    proves:
+      - {check: ZOOM_ALONE_COUNT_FROM_BADGE, modes: [compose]}
+      - {check: ZOOM_ALONE_AUDIO_CROSS_VALIDATE, modes: [compose]}
+      - {check: ZOOM_ALONE_TICK_UNIT, modes: [compose]}
+    required_modes: [compose]
+    human_verify:
+      - mode: compose
+        do: "Send a bot into a real Zoom meeting (2+ humans, all cameras OFF, keep talking or playing audio) and wait past 16 min"
+        expect: "Bot is still in the meeting at 16 min; DB meeting stays active; no completion at ~15 min"
+      - mode: compose
+        do: "In the same meeting, have every human leave; keep the meeting open"
+        expect: "Bot leaves ~15 min after the last human left; meeting completion_reason records left_alone_timeout (see issue 2)"
+
+  - id: zoom-left-alone-reason-misreported
+    source: internal
+    ref: "found during 2026-09-04 forensics on meeting 44"
+    problem: |
+      When the Zoom alone timeout fires, the bot exits without a reason
+      (exit_code 1); meeting-api's exiting-callback schema default then
+      records self_initiated_leave -> completion_reason "stopped", which
+      reads as a user-requested stop. This mislabeled 4 production
+      leaves and sent today's triage down the wrong path first.
+    hypothesis: |
+      zoom/web/recording.ts onTimeoutReached only resolves
+      recordingStopResolver; unlike gmeet/msteams it never surfaces a
+      left_alone_timeout reason into the exit path
+      (callbacks.py:233 fills the default).
+    new_checks:
+      - ZOOM_LEFT_ALONE_REASON_REPORTED
+    fix_commits: [f827cf6e]
+    proves:
+      - {check: ZOOM_LEFT_ALONE_REASON_REPORTED, modes: [compose]}
+    required_modes: [compose]
+    human_verify:
+      - mode: compose
+        do: "After the empty-room scenario above, read meetings.data.status_transition for the test meeting"
+        expect: "Final transition carries reason left_alone_timeout (not self_initiated_leave / stopped)"
+
+expensive_tests: []
+strict_features: []

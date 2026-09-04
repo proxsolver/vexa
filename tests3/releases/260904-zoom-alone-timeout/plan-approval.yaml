@@ -1,0 +1,47 @@
+# Plan approval — 260904-zoom-alone-timeout
+# Human flips each `approved:` to true (or sends back for revision).
+# AI may NOT flip these. See tests3/stages/02-plan.md exit gate.
+
+release_id: 260904-zoom-alone-timeout
+codename: zoom-alone-false-positive
+approved_at: '2026-09-04'
+approver: hp-harry (gravity2026es@gmail.com)
+approval_source: 'Project-owner explicit current-turn signal 2026-09-04: selected "전체 승인" (approve all) on the plan-approval AskUserQuestion — 2 issues, 4 registry checks, branch fix/zoom-alone-timeout.'
+
+scope_approved:
+  - issue: zoom-alone-false-positive
+    hypothesis: true
+    proves: true
+    required_modes: true
+    human_verify: true
+  - issue: zoom-left-alone-reason-misreported
+    hypothesis: true
+    proves: true
+    required_modes: true
+    human_verify: true
+
+# New check IDs referenced by scope proves[] that do not yet exist in
+# registry.yaml. Added to registry.yaml + checks/registry.json in develop.
+registry_changes_approved:
+  - id: ZOOM_ALONE_COUNT_FROM_BADGE
+    tier: static
+    proves: "Zoom Web alone-detection reads participant count from the Participants button badge, not from visible tile count"
+    symptom: "Bot counts .video-avatar__avatar tiles; speaker view / cameras-off meetings look empty -> bot leaves live meetings at exactly max_time_left_alone"
+    approved: true
+  - id: ZOOM_ALONE_AUDIO_CROSS_VALIDATE
+    tier: static
+    proves: "Zoom Web alone-timer refuses to accrue while audio was active within the last 120 s (#285 Layer-2 parity)"
+    symptom: "DOM count is the single point of failure; signal loss converts directly into a false left-alone leave"
+    approved: true
+  - id: ZOOM_ALONE_TICK_UNIT
+    tier: unit
+    proves: "computeZoomAloneTick unit-covers: badge count resets timer; unreadable count freezes timer; recent audio vetoes accrual; silent empty room still times out"
+    symptom: "Alone-timer decision logic has zero test coverage; regressions ship silently"
+    approved: true
+  - id: ZOOM_LEFT_ALONE_REASON_REPORTED
+    tier: static
+    proves: "Zoom alone-timeout exit surfaces reason left_alone_timeout to the exit callback (no schema-default mislabel)"
+    symptom: "Alone-timeout exits recorded as self_initiated_leave/stopped; triage misreads them as user-requested stops"
+    approved: true
+
+dod_changes_approved: []
