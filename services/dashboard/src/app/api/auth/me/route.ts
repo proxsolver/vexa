@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createUserToken } from "@/lib/vexa-admin-api";
+
+// Scopes every dashboard session needs. Tokens minted before scope
+// enforcement carry {bot} only and 403 on /transcripts and /b/ routes.
+const REQUIRED_SCOPES = ["bot", "tx", "browser"];
+
+function isSecureRequest(): boolean {
+  return process.env.NEXTAUTH_URL?.startsWith("https://") ||
+         process.env.DASHBOARD_URL?.startsWith("https://") ||
+         false;
+}
 
 /**
  * Get current user info from token.
@@ -43,7 +54,25 @@ export async function GET() {
       status: data.status || "approved",
     };
 
-    return NextResponse.json({ authenticated: true, user, token });
+    // Self-heal under-scoped sessions: mint a full-scope token and rotate
+    // the cookie. On mint failure keep the old token — same behavior as before.
+    let activeToken = token;
+    const scopes: string[] = Array.isArray(data.scopes) ? data.scopes : [];
+    if (REQUIRED_SCOPES.some((s) => !scopes.includes(s))) {
+      const minted = await createUserToken(String(data.user_id));
+      if (minted.success && minted.data?.token) {
+        activeToken = minted.data.token;
+        cookieStore.set("vexa-token", activeToken, {
+          httpOnly: true,
+          secure: isSecureRequest(),
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+          path: "/",
+        });
+      }
+    }
+
+    return NextResponse.json({ authenticated: true, user, token: activeToken });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to verify authentication" },
