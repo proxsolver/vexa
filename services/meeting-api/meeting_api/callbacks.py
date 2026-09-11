@@ -333,6 +333,35 @@ async def bot_exit_callback(
 
             return {"status": "rotation_handoff_complete", "meeting_id": meeting.id}
 
+        # --- Rotation: incoming (replacement) bot exited before handoff ---
+        # Mirror of the status_change FAILED guard: a pending handoff plus an
+        # exiting session that is NOT the outgoing bot means the replacement
+        # died early (join rejected, platform refused, crash). The outgoing
+        # bot is still recording — keep the meeting ACTIVE, do not finalize
+        # the recording, count the failure. Without this the replacement's
+        # exit marks a live meeting FAILED and finalizes its recording
+        # mid-stream (meeting 53, 2026-09-11).
+        if (
+            rotation.get("enabled")
+            and rotation.get("pending_handoff")
+            and meeting.status == MeetingStatus.ACTIVE.value
+            and session_uid != outgoing_session_uid
+        ):
+            rotation["pending_handoff"] = False
+            rotation["outgoing_container_id"] = None
+            rotation["outgoing_session_uid"] = None
+            rotation["consecutive_failures"] = rotation.get("consecutive_failures", 0) + 1
+            rotation["last_failure"] = datetime.utcnow().isoformat()
+            meeting_data["rotation"] = rotation
+            meeting.data = meeting_data
+            attributes.flag_modified(meeting, "data")
+            await db.commit()
+            logger.warning(
+                f"[rotation] Incoming bot exited (code={exit_code}) for meeting {meeting_id} "
+                f"before handoff — outgoing bot continues, meeting stays ACTIVE"
+            )
+            return {"status": "rotation_incoming_failed", "meeting_id": meeting.id}
+
         if exit_code == 0:
             # Check pending_completion_reason (set by scheduler timeout) — overrides bot-reported reason
             pending = (meeting.data or {}).get("pending_completion_reason") if isinstance(meeting.data, dict) else None
@@ -1069,6 +1098,16 @@ async def bot_status_change_callback(
                 )
             await db.commit()
             await db.refresh(meeting)
+
+    elif (
+        new_status in (MeetingStatus.JOINING, MeetingStatus.AWAITING_ADMISSION)
+        and meeting.status == MeetingStatus.ACTIVE.value
+    ):
+        # Rotation phase 1: the replacement bot reports joining/awaiting_admission
+        # while the outgoing bot keeps the meeting ACTIVE. Rejecting this makes
+        # the replacement abort after 3 retries and its exit marks a live meeting
+        # FAILED (meeting 53, 2026-09-11). Acknowledge without downgrading.
+        return {"status": "acknowledged", "meeting_id": meeting.id, "meeting_status": meeting.status}
 
     else:
         # joining, awaiting_admission, etc.
