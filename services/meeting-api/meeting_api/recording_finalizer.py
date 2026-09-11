@@ -238,6 +238,7 @@ def _finalize_one_media_file_sync(
     media_file_id: int,
     storage_path: str,
     declared_format: str,
+    force_rebuild: bool = False,
 ) -> Optional[str]:
     """Build and upload the master for one MediaFile. Returns the new
     storage_path (the master path) or None if no chunks were found.
@@ -255,13 +256,23 @@ def _finalize_one_media_file_sync(
 
     master_key = _master_path(prefix, fmt)
 
-    # Idempotency — if the master is already there, skip the work.
+    # Idempotency — if the master is already there, skip the work. Unless the
+    # caller saw chunks land after it was built: a master finalized mid-stream
+    # (rotation handoff, premature terminal callback) covers only part of the
+    # recording, and skipping here would silently publish the truncated cut as
+    # the final one (meeting 53, 2026-09-11: 2h39m recorded, 59m master).
     if storage.file_exists(master_key):
-        logger.info(
-            "[FINALIZER] master already exists, skipping: media_file_id=%s key=%s",
+        if not force_rebuild:
+            logger.info(
+                "[FINALIZER] master already exists, skipping: media_file_id=%s key=%s",
+                media_file_id, master_key,
+            )
+            return master_key
+        logger.warning(
+            "[FINALIZER] master is stale (chunks arrived after it was built) — "
+            "rebuilding: media_file_id=%s key=%s",
             media_file_id, master_key,
         )
-        return master_key
 
     # List chunks under the prefix. Filter out any pre-existing master.*
     # objects (defensive: there shouldn't be one given the file_exists
@@ -459,6 +470,7 @@ async def finalize_recording_master(meeting_id: int, db: AsyncSession) -> None:
                 )
                 continue
 
+            stale = _master_is_stale(mf)
             try:
                 master_key = await asyncio.to_thread(
                     _finalize_one_media_file_sync,
@@ -466,6 +478,7 @@ async def finalize_recording_master(meeting_id: int, db: AsyncSession) -> None:
                     mf_id or f"meeting_data:{meeting_id}/{rec_idx}/{mf_idx}",
                     mf_path,
                     mf_format,
+                    stale,
                 )
             except Exception as fin_err:
                 logger.error(
@@ -477,12 +490,15 @@ async def finalize_recording_master(meeting_id: int, db: AsyncSession) -> None:
             if master_key is None:
                 # No-fallback: leave storage_path alone if list returned 0 chunks.
                 continue
-            if mf.get("storage_path") == master_key:
+            if mf.get("storage_path") == master_key and not stale:
                 # Idempotent re-run.
                 continue
 
             mf["storage_path"] = master_key
-            mf["finalized_at"] = mf.get("finalized_at") or _now_iso()
+            # A stale rebuild keeps the same path, so stamp the new build time —
+            # otherwise the old timestamp marks it stale forever and every later
+            # finalize rebuilds the whole master again.
+            mf["finalized_at"] = _now_iso() if stale else (mf.get("finalized_at") or _now_iso())
             mf["finalized_by"] = "recording_finalizer.master"
             # Pack U.7 — set is_final=True so the chunk_write handler's defensive
             # check (recordings.py: refuse overwrite when is_final or storage_path
@@ -517,3 +533,17 @@ async def finalize_recording_master(meeting_id: int, db: AsyncSession) -> None:
 def _now_iso() -> str:
     from datetime import datetime
     return datetime.utcnow().isoformat()
+
+
+def _master_is_stale(media_file: dict) -> bool:
+    """True when chunks landed after this media file's master was built.
+
+    Both timestamps are naive UTC ISO strings written by this service, so a
+    lexicographic compare is a correct ordering. An unparseable or missing
+    value means "don't force" — the plain idempotency path still applies.
+    """
+    finalized_at = media_file.get("finalized_at")
+    last_chunk_at = media_file.get("created_at")
+    if not isinstance(finalized_at, str) or not isinstance(last_chunk_at, str):
+        return False
+    return last_chunk_at > finalized_at

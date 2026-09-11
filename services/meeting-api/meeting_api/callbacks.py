@@ -789,6 +789,49 @@ async def bot_awaiting_admission_callback(
     return {"status": "awaiting_admission processed", "meeting_id": meeting.id, "meeting_status": meeting.status}
 
 
+async def _rotation_phase2_handoff(meeting, redis_client, background_tasks) -> bool:
+    """Retire the outgoing bot once its replacement reports ACTIVE.
+
+    Sends the leave command and schedules a delayed container stop as a
+    safety net. Returns True when a pending handoff was acted on.
+    """
+    meeting_data = dict(meeting.data or {}) if isinstance(meeting.data, dict) else {}
+    rotation = meeting_data.get("rotation", {})
+    if not (rotation.get("pending_handoff") and rotation.get("outgoing_container_id")):
+        return False
+
+    from .meetings import _delayed_container_stop, BOT_STOP_DELAY_SECONDS
+    outgoing_container = rotation["outgoing_container_id"]
+    overlap_seconds = rotation.get("overlap_ms", 120000) // 1000
+
+    if redis_client:
+        try:
+            await redis_client.publish(
+                f"bot_commands:meeting:{meeting.id}",
+                json.dumps({
+                    "action": "leave",
+                    "meeting_id": meeting.id,
+                    "reason": "bot_rotation",
+                    "target_session": rotation.get("outgoing_session_uid"),
+                }),
+            )
+        except Exception as e:
+            logger.error(f"[rotation] Failed to publish leave to outgoing bot: {e}")
+
+    background_tasks.add_task(
+        _delayed_container_stop,
+        outgoing_container,
+        meeting.id,
+        overlap_seconds + BOT_STOP_DELAY_SECONDS,
+    )
+
+    logger.info(
+        f"[rotation] Phase 2: new bot ACTIVE for meeting {meeting.id}, "
+        f"scheduling outgoing stop in {overlap_seconds}s (container={outgoing_container})"
+    )
+    return True
+
+
 @router.post("/bots/internal/callback/status_change", status_code=200, include_in_schema=False)
 async def bot_status_change_callback(
     payload: BotStatusChangePayload,
@@ -1026,48 +1069,22 @@ async def bot_status_change_callback(
 
                 # --- Rotation Phase 2: new bot reached ACTIVE ---
                 # If there's a pending handoff, schedule the outgoing bot's stop.
-                meeting_data = dict(meeting.data or {})
-                rotation = meeting_data.get("rotation", {})
-                if rotation.get("pending_handoff") and rotation.get("outgoing_container_id"):
-                    from .meetings import _delayed_container_stop, BOT_STOP_DELAY_SECONDS
-                    outgoing_container = rotation["outgoing_container_id"]
-                    overlap_ms = rotation.get("overlap_ms", 120000)
-                    overlap_seconds = overlap_ms // 1000
-
-                    # Send leave command to outgoing bot
-                    if redis_client:
-                        try:
-                            command_channel = f"bot_commands:meeting:{meeting.id}"
-                            await redis_client.publish(
-                                command_channel,
-                                json.dumps({
-                                    "action": "leave",
-                                    "meeting_id": meeting.id,
-                                    "reason": "bot_rotation",
-                                    "target_session": rotation.get("outgoing_session_uid"),
-                                }),
-                            )
-                        except Exception as e:
-                            logger.error(f"[rotation] Failed to publish leave to outgoing bot: {e}")
-
-                    # Schedule delayed stop as safety net
-                    background_tasks.add_task(
-                        _delayed_container_stop,
-                        outgoing_container,
-                        meeting.id,
-                        overlap_seconds + BOT_STOP_DELAY_SECONDS,
-                    )
-
-                    logger.info(
-                        f"[rotation] Phase 2: new bot ACTIVE for meeting {meeting.id}, "
-                        f"scheduling outgoing stop in {overlap_seconds}s (container={outgoing_container})"
-                    )
+                await _rotation_phase2_handoff(meeting, redis_client, background_tasks)
         elif meeting.status == MeetingStatus.ACTIVE.value:
             if payload.container_id:
                 meeting.bot_container_id = payload.container_id
                 await db.commit()
                 await db.refresh(meeting)
-            return {"status": "container_updated", "meeting_id": meeting.id, "meeting_status": meeting.status}
+            # During a rotation the outgoing bot holds the meeting ACTIVE, so the
+            # replacement's ACTIVE callback always lands here — Phase 2 must run
+            # from this branch too or the outgoing bot is never retired and both
+            # bots stay in the meeting recording in parallel.
+            handed_off = await _rotation_phase2_handoff(meeting, redis_client, background_tasks)
+            return {
+                "status": "rotation_handoff_scheduled" if handed_off else "container_updated",
+                "meeting_id": meeting.id,
+                "meeting_status": meeting.status,
+            }
         else:
             # Status not in allowed pre-check list and not already ACTIVE — reject
             success = False
