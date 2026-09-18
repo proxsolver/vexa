@@ -1942,6 +1942,19 @@ async def scheduler_rotation_spawn(
         elif platform_value == "zoom" and passcode:
             constructed_url = f"https://zoom.us/j/{native_meeting_id}?pwd={passcode}"
 
+    # resolved_timeouts is stored under the API's snake_case names; the bot's
+    # schema is camelCase and silently drops unknown keys, falling back to its
+    # own defaults. Passing the blob through verbatim gave every rotated bot a
+    # 2-minute everyone-left timeout instead of the configured 15 — it would
+    # leave a quiet meeting minutes after taking over. Map the names, exactly
+    # as request_bot does.
+    rotation_timeouts = meeting_data.get("resolved_timeouts") or {}
+    automatic_leave = {
+        "waitingRoomTimeout": rotation_timeouts.get("max_wait_for_admission", 900000),
+        "noOneJoinedTimeout": rotation_timeouts.get("no_one_joined_timeout", 120000),
+        "everyoneLeftTimeout": rotation_timeouts.get("max_time_left_alone", 900000),
+    }
+
     # Build new bot_config
     bot_config = {
         "meeting_id": meeting_id,
@@ -1955,7 +1968,7 @@ async def scheduler_rotation_spawn(
         "task": meeting_data.get("task"),
         "transcriptionTier": meeting_data.get("transcription_tier", "realtime"),
         "redisUrl": REDIS_URL,
-        "automaticLeave": meeting_data.get("resolved_timeouts", {}),
+        "automaticLeave": automatic_leave,
         "meetingApiCallbackUrl": f"{MEETING_API_URL}/bots/internal/callback/exited",
         "recordingEnabled": recording_enabled,
         "transcribeEnabled": meeting_data.get("transcribe_enabled", True),
