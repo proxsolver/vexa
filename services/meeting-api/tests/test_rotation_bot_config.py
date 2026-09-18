@@ -36,9 +36,20 @@ async def _spawn_and_capture(monkeypatch, resolved_timeouts):
         captured["env"] = config["env"]
         return None  # abort after capture — the spawn-failure path is harmless here
 
+    class FakeResult:
+        def scalars(self):
+            return self
+
+        def first(self):
+            return meeting
+
     class FakeDB:
         async def get(self, model, pk):
             return meeting
+
+        async def execute(self, stmt):
+            # Serves lock_meeting_row's SELECT ... FOR UPDATE re-read.
+            return FakeResult()
 
         async def commit(self):
             pass
@@ -52,6 +63,10 @@ async def _spawn_and_capture(monkeypatch, resolved_timeouts):
     monkeypatch.setattr("meeting_api.meetings._spawn_via_runtime_api", fake_spawn)
     monkeypatch.setattr(
         "meeting_api.meetings.mint_meeting_token", lambda *a, **k: "tok"
+    )
+    # flag_modified needs a real instrumented instance; the meeting is a Mock.
+    monkeypatch.setattr(
+        "meeting_api.meetings.attributes.flag_modified", lambda *a, **k: None
     )
 
     async def noop(*a, **k):

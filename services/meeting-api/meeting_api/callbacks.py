@@ -31,6 +31,7 @@ from .meetings import (
     publish_meeting_status_change,
     schedule_status_webhook_task,
     get_redis,
+    lock_meeting_row,
 )
 from .post_meeting import run_all_tasks
 from .recording_finalizer import finalize_recording_master
@@ -315,7 +316,11 @@ async def bot_exit_callback(
                 f"[rotation] Outgoing bot exited for meeting {meeting_id} "
                 f"(session={session_uid}), meeting stays ACTIVE"
             )
-            # Clean up rotation state
+            # Clean up rotation state — re-read under a row lock so a
+            # concurrent locked writer's changes aren't erased (lock_meeting_row).
+            meeting = await lock_meeting_row(db, meeting_id) or meeting
+            meeting_data = dict(meeting.data or {})
+            rotation = meeting_data.get("rotation", {})
             rotation["outgoing_container_id"] = None
             rotation["outgoing_session_uid"] = None
             rotation["pending_handoff"] = False
@@ -323,6 +328,7 @@ async def bot_exit_callback(
             rotation["handoff_completed_at"] = datetime.utcnow().isoformat()
             meeting_data["rotation"] = rotation
             meeting.data = meeting_data
+            attributes.flag_modified(meeting, "data")
             await db.commit()
 
             # Finalize recording for the outgoing session
@@ -347,6 +353,10 @@ async def bot_exit_callback(
             and meeting.status == MeetingStatus.ACTIVE.value
             and session_uid != outgoing_session_uid
         ):
+            # Re-read under a row lock before writing (lock_meeting_row).
+            meeting = await lock_meeting_row(db, meeting_id) or meeting
+            meeting_data = dict(meeting.data or {})
+            rotation = meeting_data.get("rotation", {})
             rotation["pending_handoff"] = False
             rotation["outgoing_container_id"] = None
             rotation["outgoing_session_uid"] = None
@@ -963,6 +973,9 @@ async def bot_status_change_callback(
     elif new_status == MeetingStatus.FAILED:
         # Rotation: if a pending handoff bot fails but the outgoing bot
         # is still active, don't fail the meeting — just cancel the handoff.
+        # Row-lock before reading rotation state so the guard decides on
+        # current data and its writes can't be erased (lock_meeting_row).
+        meeting = await lock_meeting_row(db, meeting.id) or meeting
         meeting_data = dict(meeting.data or {}) if isinstance(meeting.data, dict) else {}
         rotation = meeting_data.get("rotation", {})
         if (
@@ -1030,6 +1043,9 @@ async def bot_status_change_callback(
                 f"[rotation] Meeting {meeting.id} went FAILED despite rotation pending_handoff. "
                 f"Clearing handoff state."
             )
+            # update_meeting_status committed (released the earlier lock) —
+            # re-lock before this write.
+            meeting = await lock_meeting_row(db, meeting.id) or meeting
             meeting_data = dict(meeting.data or {})
             rot = meeting_data.get("rotation", {})
             rot["pending_handoff"] = False

@@ -115,6 +115,25 @@ def mint_meeting_token(
     return f"{header_b64}.{payload_b64}.{signature_b64}"
 
 
+async def lock_meeting_row(db: AsyncSession, meeting_id: int) -> Optional[Meeting]:
+    """Row-lock the meeting and return a fresh instance for a data write.
+
+    meeting.data is one JSONB column shared by every subsystem (rotation,
+    recordings, status_transition, bot_logs). A writer that replaces it
+    wholesale from an unlocked read erases whatever a concurrent locked
+    writer just committed — meeting 53 (2026-09-11) lost its rotation
+    pending_handoff to a chunk-upload writer exactly this way, which
+    disarmed the handoff guard and killed the meeting.
+
+    Pattern: lock → re-read data → mutate → commit (releases the lock).
+    Keep the window narrow; never hold it across S3/HTTP calls.
+    """
+    result = await db.execute(
+        select(Meeting).where(Meeting.id == meeting_id).with_for_update()
+    )
+    return result.scalars().first()
+
+
 async def update_meeting_status(
     meeting: Meeting,
     new_status: MeetingStatus,
@@ -2007,11 +2026,16 @@ async def scheduler_rotation_spawn(
 
     if not spawn_result:
         logger.error(f"[rotation] Failed to spawn new bot for meeting {meeting_id}")
-        # Update failure count and schedule retry
-        rotation["consecutive_failures"] = consecutive_failures + 1
+        # Update failure count and schedule retry. The spawn attempt ran
+        # unlocked (slow HTTP) — re-read under a row lock before writing.
+        meeting = await lock_meeting_row(db, meeting_id) or meeting
+        meeting_data = dict(meeting.data or {})
+        rotation = meeting_data.get("rotation", {})
+        rotation["consecutive_failures"] = rotation.get("consecutive_failures", consecutive_failures) + 1
         rotation["last_failure"] = datetime.now(timezone.utc).isoformat()
         meeting_data["rotation"] = rotation
         meeting.data = meeting_data
+        attributes.flag_modified(meeting, "data")
         await db.commit()
 
         # Cancel old rotation job and schedule retry
@@ -2025,9 +2049,11 @@ async def scheduler_rotation_spawn(
             rotation_count=rotation_count,
         )
         if retry_job_id:
+            meeting = await lock_meeting_row(db, meeting_id) or meeting
             meeting_data = dict(meeting.data or {})
-            meeting_data["rotation"]["scheduler_job_id"] = retry_job_id
+            meeting_data.setdefault("rotation", {})["scheduler_job_id"] = retry_job_id
             meeting.data = meeting_data
+            attributes.flag_modified(meeting, "data")
             await db.commit()
         return {"message": "Spawn failed, retry scheduled"}
 
@@ -2040,8 +2066,11 @@ async def scheduler_rotation_spawn(
     db.add(new_session)
 
     # --- Update meeting state ---
-    # Refresh to get latest data (avoid race with concurrent recording uploads).
-    await db.refresh(meeting)
+    # Row-lock, not just refresh: a refresh reads the latest data but the
+    # window between it and commit still loses this write to a concurrent
+    # locked writer (chunk uploads lock this row every few seconds). The
+    # vanished pending_handoff on meeting 53 came from exactly this window.
+    meeting = await lock_meeting_row(db, meeting_id) or meeting
     outgoing_container = meeting.bot_container_id
     # Find the current active session_uid (the new session was just added).
     outgoing_session_uid = None
@@ -2070,6 +2099,7 @@ async def scheduler_rotation_spawn(
     meeting_data["rotation"] = rotation
     meeting.bot_container_id = new_container_name
     meeting.data = meeting_data
+    attributes.flag_modified(meeting, "data")
     await db.commit()
 
     # --- Cancel any existing rotation job and schedule next ---
@@ -2085,10 +2115,11 @@ async def scheduler_rotation_spawn(
         rotation_count=next_count,
     )
     if next_job_id:
-        await db.refresh(meeting)
+        meeting = await lock_meeting_row(db, meeting_id) or meeting
         meeting_data = dict(meeting.data or {})
-        meeting_data["rotation"]["scheduler_job_id"] = next_job_id
+        meeting_data.setdefault("rotation", {})["scheduler_job_id"] = next_job_id
         meeting.data = meeting_data
+        attributes.flag_modified(meeting, "data")
         await db.commit()
 
     logger.info(
