@@ -125,7 +125,7 @@ async def lock_meeting_row(db: AsyncSession, meeting_id: int) -> Optional[Meetin
     pending_handoff to a chunk-upload writer exactly this way, which
     disarmed the handoff guard and killed the meeting.
 
-    Pattern: lock → re-read data → mutate → commit (releases the lock).
+    Pattern: lock -> re-read data -> mutate -> commit (releases the lock).
     Keep the window narrow; never hold it across S3/HTTP calls.
     """
     result = await db.execute(
@@ -353,6 +353,73 @@ def _get_httpx_client() -> httpx.AsyncClient:
         # Fallback for cases where app hasn't started yet (tests, etc.)
         return httpx.AsyncClient(timeout=30.0)
     return client
+
+
+def _scoped_bot_s3_credentials(user_id: int, prefix: str, ttl_seconds: int) -> Dict[str, str]:
+    """Mint temporary S3 credentials scoped to one user's prefix.
+
+    A bot container's env is readable by anyone who can `docker inspect` it.
+    Shipping the MinIO root key there hands over the whole bucket — every
+    user's recordings AND their saved sign-in cookies — on a single bot
+    compromise. Instead we AssumeRole with an inline policy that only allows
+    GET/PUT/DELETE under `<prefix>/*` and a prefix-restricted ListBucket, and
+    the credentials expire with the session.
+
+    Returns a dict with accessKey/secretKey/sessionToken. Falls back to the
+    root key (logged) when STS is unavailable, so authenticated join keeps
+    working on a MinIO that lacks AssumeRole rather than breaking outright.
+    """
+    endpoint = os.environ.get("MINIO_ENDPOINT", "minio:9000")
+    secure = os.environ.get("MINIO_SECURE", "false").lower() == "true"
+    endpoint_url = f"{'https' if secure else 'http'}://{endpoint}"
+    bucket = os.environ.get("MINIO_BUCKET", "vexa-recordings")
+    root_key = os.environ.get("MINIO_ACCESS_KEY", "")
+    root_secret = os.environ.get("MINIO_SECRET_KEY", "")
+
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+                "Resource": [f"arn:aws:s3:::{bucket}/{prefix}/*"],
+            },
+            {
+                "Effect": "Allow",
+                "Action": ["s3:ListBucket"],
+                "Resource": [f"arn:aws:s3:::{bucket}"],
+                "Condition": {"StringLike": {"s3:prefix": [f"{prefix}/*"]}},
+            },
+        ],
+    }
+
+    try:
+        import boto3
+        sts = boto3.client(
+            "sts", endpoint_url=endpoint_url,
+            aws_access_key_id=root_key, aws_secret_access_key=root_secret,
+            region_name="us-east-1",
+        )
+        creds = sts.assume_role(
+            # MinIO ignores the ARN but boto3 requires the field; the inline
+            # Policy is what actually scopes the session.
+            RoleArn="arn:aws:iam::000000000000:role/bot",
+            RoleSessionName=f"bot-u{user_id}",
+            Policy=json.dumps(policy),
+            DurationSeconds=max(900, min(ttl_seconds, 43200)),
+        )["Credentials"]
+        return {
+            "accessKey": creds["AccessKeyId"],
+            "secretKey": creds["SecretAccessKey"],
+            "sessionToken": creds["SessionToken"],
+        }
+    except Exception as e:
+        logger.warning(
+            "[s3-creds] STS AssumeRole unavailable (%s: %s) — falling back to "
+            "root credentials for user %s. The bucket is NOT scoped for this bot.",
+            type(e).__name__, str(e)[:120], user_id,
+        )
+        return {"accessKey": root_key, "secretKey": root_secret, "sessionToken": ""}
 
 
 async def _schedule_bot_timeout(
@@ -862,13 +929,20 @@ async def request_bot(
         s3_config = {}
         if minio_endpoint:
             minio_secure = os.environ.get("MINIO_SECURE", "false").lower() == "true"
+            # A browser session can stay open for hours while a human signs in;
+            # give it the 12h max the helper allows.
+            creds = _scoped_bot_s3_credentials(
+                current_user.id, f"users/{current_user.id}", ttl_seconds=43200,
+            )
             s3_config = {
                 "userdataS3Path": f"users/{current_user.id}/browser-userdata",
                 "s3Endpoint": f"{'https' if minio_secure else 'http'}://{minio_endpoint}",
                 "s3Bucket": os.environ.get("MINIO_BUCKET", "vexa-recordings"),
-                "s3AccessKey": os.environ.get("MINIO_ACCESS_KEY", ""),
-                "s3SecretKey": os.environ.get("MINIO_SECRET_KEY", ""),
+                "s3AccessKey": creds["accessKey"],
+                "s3SecretKey": creds["secretKey"],
             }
+            if creds["sessionToken"]:
+                s3_config["s3SessionToken"] = creds["sessionToken"]
 
         bot_config = {
             "mode": "browser_session",
@@ -1176,8 +1250,15 @@ async def request_bot(
         bot_config["userdataS3Path"] = f"users/{current_user.id}/browser-userdata"
         bot_config["s3Endpoint"] = s3_endpoint_url
         bot_config["s3Bucket"] = s3_bucket
-        bot_config["s3AccessKey"] = os.environ.get("MINIO_ACCESS_KEY", "")
-        bot_config["s3SecretKey"] = os.environ.get("MINIO_SECRET_KEY", "")
+        # Scope to this user's prefix; TTL covers the bot's full lifetime.
+        creds = _scoped_bot_s3_credentials(
+            current_user.id, f"users/{current_user.id}",
+            ttl_seconds=(resolved_max_bot_time // 1000) + 3600,
+        )
+        bot_config["s3AccessKey"] = creds["accessKey"]
+        bot_config["s3SecretKey"] = creds["secretKey"]
+        if creds["sessionToken"]:
+            bot_config["s3SessionToken"] = creds["sessionToken"]
     # Remove None values
     bot_config = {k: v for k, v in bot_config.items() if v is not None}
 

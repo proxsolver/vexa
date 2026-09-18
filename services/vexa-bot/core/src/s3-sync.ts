@@ -18,14 +18,24 @@ export interface S3Config {
   s3Bucket?: string;
   s3AccessKey?: string;
   s3SecretKey?: string;
+  s3SessionToken?: string;
 }
 
 function getS3Env(config: S3Config): Record<string, string> {
-  return {
+  const env: Record<string, string> = {
     ...process.env as Record<string, string>,
     AWS_ACCESS_KEY_ID: config.s3AccessKey || '',
     AWS_SECRET_ACCESS_KEY: config.s3SecretKey || '',
   };
+  // Prefix-scoped STS credentials come with a session token; without it the
+  // temporary key is rejected. Clear any inherited token when unset so a
+  // stale AWS_SESSION_TOKEN from the environment can't shadow long-lived keys.
+  if (config.s3SessionToken) {
+    env.AWS_SESSION_TOKEN = config.s3SessionToken;
+  } else {
+    delete env.AWS_SESSION_TOKEN;
+  }
+  return env;
 }
 
 export function s3Sync(localDir: string, s3Path: string, config: S3Config, direction: 'up' | 'down', excludes: string[] = []): void {
