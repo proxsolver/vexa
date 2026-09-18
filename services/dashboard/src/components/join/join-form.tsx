@@ -456,20 +456,24 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
             </p>
           </div>
 
-          {/* Authenticated Toggle — coming soon */}
+          {/* Authenticated Toggle */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between opacity-50">
-              <Label htmlFor="authenticated" className="flex items-center gap-2 cursor-not-allowed">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="authenticated" className="flex items-center gap-2 cursor-pointer">
                 <UserCheck className="h-3.5 w-3.5" />
                 Authenticated
-                <span className="text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded">Soon</span>
               </Label>
               <Switch
                 id="authenticated"
-                checked={false}
-                disabled
+                checked={authenticated}
+                onCheckedChange={setAuthenticated}
               />
             </div>
+            <p className="text-xs text-muted-foreground">
+              Join signed in with your saved browser session — needed for meetings
+              that reject anonymous bots. Set it up once from the Browser tab: sign
+              in there, hit Save, and every later bot reuses that session.
+            </p>
           </div>
 
           {/* Language */}
