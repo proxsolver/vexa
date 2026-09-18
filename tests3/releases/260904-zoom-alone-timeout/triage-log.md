@@ -72,3 +72,69 @@ single-host cycle. Remaining human_verify (the REAL confirmation):
    present past 16 min; meeting stays `active`.
 2. Everyone leaves, meeting stays open → bot leaves ~15 min later;
    `status_transition` records `left_alone_timeout` (not "stopped").
+
+## Pass 4 — findings from the human_verify attempt, 2026-09-11 / 09-18
+
+human_verify #1 was attempted against a real Zoom meeting (meeting 53,
+2h39m, UNIST). It did not reach a verdict: the meeting outlived the
+1-hour rotation, and the rotation path failed in four distinct ways that
+end long meetings early. **Neither human_verify item is answered yet.**
+
+### Process deviation — recorded, not excused
+
+Every fix below was written, tested and deployed **during `triage`**, on
+explicit operator instruction ("고쳐라" / "수정해", repeated). The stage
+contract forbids code edits here; the correct path was
+`triage → develop`. The commits are real and tested but sit outside the
+INNER loop's accounting — the Registry has no DoD for any of them. The
+operator should decide whether to (a) back-date them into a `develop`
+pass, or (b) fold them into the next release's scope.
+
+### Classification
+
+| finding | class | evidence / disposition |
+|---|---|---|
+| Replacement bot's `joining` callback rejected while meeting ACTIVE → aborts after 3 retries | **pre-existing (latent)** | `active → joining` was never a legal transition, so *no rotation has ever succeeded*. Masked until a meeting ran past 1h. Fix `f6577f1f`; negative-tested against the prior image ("Failed to update meeting status"). |
+| Replacement bot's **clean** exit (code 0) during a pending handoff ends the live meeting and finalizes its recording | **pre-existing (gap)** | The existing guard covered non-zero exits only. This is how meeting 53 died at 11:01 and how its master got cut. Fix `f6577f1f`. Note: the earlier "exit kills the meeting" wording in my own report was wrong for the non-zero case — corrected here. |
+| Rotation phase 2 (retire outgoing bot) sits in a branch a rotation cannot reach | **pre-existing (latent)** | During a handoff the outgoing bot holds the meeting ACTIVE, so the replacement's ACTIVE callback always lands in the already-ACTIVE branch, which returned `container_updated` and skipped the leave command. Had only the first two been fixed, both bots would have stayed in the meeting recording in parallel. Fix `1f30f45b`. |
+| Finalizer publishes a truncated master | **pre-existing (gap), data loss** | A master built mid-recording short-circuits every later finalize via `master already exists`. Meeting 53 recorded 2h39m and published **59.8 min**; the remaining 634 chunks sat unmerged in MinIO. Fix `1f30f45b` rebuilds when chunks post-date the master. Meeting 53 recovered to 158.7 min, first 10 min byte-identical. |
+| Rotated bots ignore the meeting's timeouts | **pre-existing (gap) — reproduces this release's symptom** | The rotation path passed `resolved_timeouts` (snake_case) into `automaticLeave` (camelCase zod, unknown keys dropped, per-key defaults). Every rotated bot ran `everyoneLeftTimeout` **2 min against a configured 15** — i.e. the exact early-leave this release exists to fix, reintroduced after the 1h handoff. Fix `c32fb109`, 4 tests, all confirmed failing against the prior line. **This is the one finding a reviewer should weigh against scope.** |
+| Dashboard session tokens minted before scope enforcement 403 on `/transcripts` | **pre-existing, unrelated** | Token id 2 (2026-05-30) carried `{bot}` only; `/api/auth/me` trusted the cookie without checking scopes, so the 30-day cookie failed silently and forever. Fix `d5b32ecd`. |
+| `needs_human_help` bot appeared not to time out | **not a defect** | `getEscalationExtensionMs()` (escalation.ts:83) grants +5 min once escalated, so 15→20 min is by design. Recorded so nobody re-investigates — my initial report of this as a defect was wrong. |
+
+### Blocker — human_verify cannot proceed without an operator action
+
+Zoom refuses anonymous bots on this meeting ("Automated bots aren't
+allowed to join this meeting — sign in to join"); the bot parks in
+`needs_human_help` and times out at 20 min. Platform policy, not a
+defect. The supported path is the authenticated join: a `browser_session`
+saves a signed-in Chrome profile to MinIO and bots started with
+`authenticated: true` sync it back down. That whole path worked already
+**except** the dashboard toggle, which was hardcoded
+`checked={false} disabled` behind a "Soon" badge — enabled in `0b0b2404`.
+Round trip verified except the sign-in itself, which needs credentials
+only the operator has.
+
+### Verification status of the Pass-4 fixes
+
+Synthetic only: `tests3/synthetic/scenarios/pack-rot-handoff.sh` (new,
+`1cd7acf7`) drives a full handoff through the callback API and every
+assertion was confirmed failing against the pre-fix image. meeting-api
+suite 285 passed / 10 skipped. **No rotation has yet been observed
+succeeding on a real meeting** — that needs a 1h+ meeting and is the
+natural companion to human_verify #1.
+
+Pre-existing synthetic failures left untouched: `pack-fm001` (calls
+`rig_seed_transcription`, absent from rig.sh) and `pack-fuzz`
+(`oversize-1MB` → HTTP 000).
+
+### Handoff to human (decision required)
+
+1. Accept or reject the process deviation above, and choose where these
+   six commits land (`develop` back-fill vs next release's scope).
+2. Decide whether the rotated-bot timeout finding changes this release's
+   scope verdict — it reintroduces this release's own symptom on any
+   meeting that passes 1h.
+3. Sign in once via the Browser session so human_verify #1/#2 can finally
+   run, ideally on a 1h+ meeting so the rotation handoff gets its first
+   real-world proof.
