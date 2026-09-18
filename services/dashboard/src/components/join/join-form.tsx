@@ -37,9 +37,12 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
   const [passcode, setPasscode] = useState("");
   const [botName, setBotName] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("vexa-join-bot-name") || ".";
+      // "." is the system fallback, not a user choice — older builds leaked
+      // it into storage, which refilled the form and re-stored it forever.
+      const stored = localStorage.getItem("vexa-join-bot-name");
+      if (stored && stored !== ".") return stored;
     }
-    return ".";
+    return "";
   });
   const [language, setLanguage] = useState("auto");
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
@@ -107,9 +110,14 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
     // Set bot name - use custom name or configured default
     request.bot_name = botName.trim() || config?.defaultBotName || ".";
 
-    // Persist to localStorage
+    // Persist only what the user typed — never the resolved fallback.
     if (typeof window !== "undefined") {
-      localStorage.setItem("vexa-join-bot-name", request.bot_name);
+      const typed = botName.trim();
+      if (typed && typed !== ".") {
+        localStorage.setItem("vexa-join-bot-name", typed);
+      } else {
+        localStorage.removeItem("vexa-join-bot-name");
+      }
     }
 
     if (language && language !== "auto") {

@@ -48,17 +48,27 @@ export function JoinModal() {
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
   const [botName, setBotName] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("vexa-join-bot-name") || ".";
+      // "." is the system fallback, not a user choice — older builds leaked
+      // it into storage, which refilled the form and re-stored it forever.
+      const stored = localStorage.getItem("vexa-join-bot-name");
+      if (stored && stored !== ".") return stored;
     }
-    return ".";
+    return "";
   });
   const [passcode, setPasscode] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
 
-  // Persist bot name and language to localStorage
+  // Persist bot name and language to localStorage.
+  // Only the user's typed name is stored — persisting the "." fallback made
+  // it permanent (mount wrote ".", the form read it back, forever).
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("vexa-join-bot-name", botName);
+      const typed = botName.trim();
+      if (typed && typed !== ".") {
+        localStorage.setItem("vexa-join-bot-name", typed);
+      } else {
+        localStorage.removeItem("vexa-join-bot-name");
+      }
     }
   }, [botName]);
   useEffect(() => {
@@ -480,7 +490,7 @@ export function JoinModal() {
             </Label>
             <Input
               id="botName"
-              placeholder="."
+              placeholder="Meeting Assistant"
               value={botName}
               onChange={(e) => setBotName(e.target.value)}
               className="h-10"
