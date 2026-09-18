@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { DocsLink } from "@/components/docs/docs-link";
 import { useAuthStore } from "@/stores/auth-store";
 import { shouldTriggerZoomOAuth, startZoomOAuth } from "@/lib/zoom-oauth-client";
+import { useBotName } from "@/hooks/use-bot-name";
 
 interface JoinFormProps {
   onSuccess?: (meetingId: string, platform: Platform, nativeId: string) => void;
@@ -35,15 +36,7 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
   const [platform, setPlatform] = useState<Platform>("google_meet");
   const [meetingId, setMeetingId] = useState("");
   const [passcode, setPasscode] = useState("");
-  const [botName, setBotName] = useState(() => {
-    if (typeof window !== "undefined") {
-      // "." is the system fallback, not a user choice — older builds leaked
-      // it into storage, which refilled the form and re-stored it forever.
-      const stored = localStorage.getItem("vexa-join-bot-name");
-      if (stored && stored !== ".") return stored;
-    }
-    return "";
-  });
+  const { botName, setBotName, resolve: resolveBotName } = useBotName();
   const [language, setLanguage] = useState("auto");
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
@@ -107,18 +100,9 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
       request.passcode = passcode.trim();
     }
 
-    // Set bot name - use custom name or configured default
-    request.bot_name = botName.trim() || config?.defaultBotName || ".";
-
-    // Persist only what the user typed — never the resolved fallback.
-    if (typeof window !== "undefined") {
-      const typed = botName.trim();
-      if (typed && typed !== ".") {
-        localStorage.setItem("vexa-join-bot-name", typed);
-      } else {
-        localStorage.removeItem("vexa-join-bot-name");
-      }
-    }
+    // Resolve name (typed → configured default → ".") and persist the typed
+    // value only — the hook owns the "never store the fallback" rule.
+    request.bot_name = resolveBotName(config?.defaultBotName);
 
     if (language && language !== "auto") {
       request.language = language;

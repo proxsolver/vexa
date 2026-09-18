@@ -30,6 +30,7 @@ import { DocsLink } from "@/components/docs/docs-link";
 import { useAuthStore } from "@/stores/auth-store";
 import { shouldTriggerZoomOAuth, startZoomOAuth } from "@/lib/zoom-oauth-client";
 import { withBasePath } from "@/lib/base-path";
+import { useBotName } from "@/hooks/use-bot-name";
 
 
 export function JoinModal() {
@@ -46,35 +47,9 @@ export function JoinModal() {
   const [language, setLanguage] = useState("auto");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transcribeEnabled, setTranscribeEnabled] = useState(true);
-  const [botName, setBotName] = useState(() => {
-    if (typeof window !== "undefined") {
-      // "." is the system fallback, not a user choice — older builds leaked
-      // it into storage, which refilled the form and re-stored it forever.
-      const stored = localStorage.getItem("vexa-join-bot-name");
-      if (stored && stored !== ".") return stored;
-    }
-    return "";
-  });
+  const { botName, setBotName, resolve: resolveBotName } = useBotName();
   const [passcode, setPasscode] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-
-  // Persist bot name and language to localStorage.
-  // Only the user's typed name is stored — persisting the "." fallback made
-  // it permanent (mount wrote ".", the form read it back, forever).
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const typed = botName.trim();
-      if (typed && typed !== ".") {
-        localStorage.setItem("vexa-join-bot-name", typed);
-      } else {
-        localStorage.removeItem("vexa-join-bot-name");
-      }
-    }
-  }, [botName]);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-    }
-  }, [language]);
 
   // Reset form when modal closes (preserve bot name and languages)
   useEffect(() => {
@@ -157,7 +132,7 @@ export function JoinModal() {
       request.meeting_url = parsedInput.originalUrl;
     }
 
-    request.bot_name = botName.trim() || config?.defaultBotName || ".";
+    request.bot_name = resolveBotName(config?.defaultBotName);
 
     if (language && language !== "auto") {
       request.language = language;
@@ -225,7 +200,7 @@ export function JoinModal() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [parsedInput, passcode, botName, language, transcribeEnabled, authenticated, config, setActiveMeeting, setCurrentMeeting, closeModal, router, user]);
+  }, [parsedInput, passcode, resolveBotName, language, transcribeEnabled, authenticated, config, setActiveMeeting, setCurrentMeeting, closeModal, router, user]);
 
   const handleBrowserSession = useCallback(async () => {
     setIsSubmitting(true);
