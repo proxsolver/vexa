@@ -37,6 +37,15 @@ class Meeting(Base):
         Index('ix_meeting_user_platform_native_id_created_at',
               'user_id', 'platform', 'platform_specific_id', 'created_at'),
         Index('ix_meeting_data_gin', 'data', postgresql_using='gin'),
+        # Ported from upstream MIGRATION-0002: at most ONE non-terminal meeting
+        # per (user, platform, native id). DB-level backstop for the app-side
+        # duplicate check in request_bot — which is read-then-write and loses
+        # the cross-process race (two bots recorded the same Zoom room here on
+        # 2026-09-18, meetings 53/54). Applied to the live DB out-of-band.
+        Index('uq_meeting_active_user_platform_native',
+              'user_id', 'platform', 'platform_specific_id',
+              unique=True,
+              postgresql_where=text("status NOT IN ('completed', 'failed')")),
     )
 
     @property
