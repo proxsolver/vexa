@@ -89,6 +89,10 @@ celerybeat-schedule
 
 # Environments
 .env
+# Timestamped copies of .env hold the same live credentials it does, and the
+# bare `.env` rule above does not cover them.
+.env.bak*
+.env.backup
 .venv
 env/
 !deploy/env-example

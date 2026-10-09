@@ -20,7 +20,8 @@ from admin_models.database import get_db
 
 # --- Fixtures ---
 
-def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test"):
+def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test",
+                   role="free", status="approved"):
     """Create a mock User object."""
     user = MagicMock()
     user.id = user_id
@@ -29,6 +30,9 @@ def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test"):
     user.image_url = None
     user.max_concurrent_bots = 1
     user.data = data
+    # UserResponse validates these as strings; a bare MagicMock attribute fails.
+    user.role = role
+    user.status = status
     user.created_at = "2025-01-01T00:00:00"
     user.meetings = []
     user.api_tokens = []

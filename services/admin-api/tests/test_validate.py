@@ -20,12 +20,14 @@ INTERNAL_SECRET = "test-internal-secret"
 INTERNAL_HEADERS = {"X-Internal-Secret": INTERNAL_SECRET}
 
 
-def _make_user(user_id=5, email="test@example.com", max_concurrent_bots=3, data=None):
+def _make_user(user_id=5, email="test@example.com", max_concurrent_bots=3, data=None, role="free", status="approved"):
     user = MagicMock()
     user.id = user_id
     user.email = email
     user.max_concurrent_bots = max_concurrent_bots
     user.data = data if data is not None else {}
+    user.role = role
+    user.status = status
     return user
 
 
@@ -110,6 +112,63 @@ async def test_validate_legacy_token(mock_db):
             assert resp.status_code == 200
             data = resp.json()
             assert data["scopes"] == ["legacy"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_validate_reports_real_role_and_status(mock_db):
+    """Role and status are passed through verbatim, never replaced by a default."""
+    token = "vxa_bot_abc123def456"
+    user = _make_user(role="admin", status="approved")
+    api_token = _make_api_token(token, scopes=["bot"])
+    mock_db.execute.return_value = _mock_db_result((api_token, user))
+
+    async def override_get_db():
+        return mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with patch("app.main.INTERNAL_API_SECRET", INTERNAL_SECRET):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post(
+                    "/internal/validate",
+                    json={"token": token},
+                    headers=INTERNAL_HEADERS,
+                )
+
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["role"] == "admin"
+            assert data["status"] == "approved"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_validate_rejects_unapproved_user(mock_db):
+    """A pending user is refused outright — validate never reports them approved."""
+    token = "vxa_bot_abc123def456"
+    user = _make_user(status="pending")
+    api_token = _make_api_token(token, scopes=["bot"])
+    mock_db.execute.return_value = _mock_db_result((api_token, user))
+
+    async def override_get_db():
+        return mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with patch("app.main.INTERNAL_API_SECRET", INTERNAL_SECRET):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post(
+                    "/internal/validate",
+                    json={"token": token},
+                    headers=INTERNAL_HEADERS,
+                )
+
+            assert resp.status_code == 403
     finally:
         app.dependency_overrides.clear()
 

@@ -280,15 +280,58 @@ async def shutdown_event():
         await app.state.redis.close()
     except Exception:
         pass
+    # Drain before disposing the engine: write_audit_log no-ops on a disposed
+    # engine, so anything still in flight would vanish without a trace.
+    await _drain_background_tasks()
     await close_audit_db()
 
 logger = logging.getLogger("api_gateway")
 
 
 # ---------------------------------------------------------------------------
+# Background tasks
+# ---------------------------------------------------------------------------
+# The event loop holds only a weak reference to a task, so a detached task with
+# no other reference can be garbage-collected mid-await. Keep a strong reference
+# until it finishes — and cap the set, because holding those references is
+# exactly what lets a burst accumulate without bound.
+_background_tasks: set[asyncio.Task] = set()
+MAX_BACKGROUND_TASKS = int(os.getenv("MAX_BACKGROUND_TASKS", "500"))
+BACKGROUND_DRAIN_TIMEOUT = float(os.getenv("BACKGROUND_DRAIN_TIMEOUT", "5"))
+
+
+def _on_background_done(task: asyncio.Task) -> None:
+    _background_tasks.discard(task)
+    # Retrieve the exception, or asyncio reports "never retrieved" at GC time
+    # with no indication of which task it came from.
+    if not task.cancelled() and task.exception() is not None:
+        logger.warning("Background task %s failed", task.get_name(), exc_info=task.exception())
+
+
+def _spawn_background(coro, name: str) -> bool:
+    """Run `coro` detached. Returns False if it was shed because the queue is full."""
+    if len(_background_tasks) >= MAX_BACKGROUND_TASKS:
+        coro.close()
+        logger.warning("Background queue full (%d) — dropped %s", MAX_BACKGROUND_TASKS, name)
+        return False
+    task = asyncio.create_task(coro, name=name)
+    _background_tasks.add(task)
+    task.add_done_callback(_on_background_done)
+    return True
+
+
+async def _drain_background_tasks() -> None:
+    """Let in-flight tasks finish before the resources they write to go away."""
+    if not _background_tasks:
+        return
+    _, pending = await asyncio.wait(set(_background_tasks), timeout=BACKGROUND_DRAIN_TIMEOUT)
+    if pending:
+        logger.warning("%d background task(s) unfinished at shutdown", len(pending))
+
+
+# ---------------------------------------------------------------------------
 # Audit logging
 # ---------------------------------------------------------------------------
-import asyncio as _asyncio
 from audit import init_audit_db, close_audit_db, write_audit_log as _write_audit
 
 AUDIT_SKIP_PATHS = {"/", "/docs", "/openapi.json", "/redoc", "/health", "/readyz"}
@@ -299,6 +342,7 @@ AUDIT_SKIP_PREFIXES = (
     "/b/",
     "/auth/me",
 )
+
 # Map path prefixes to (action_template, resource_type)
 AUDIT_ACTION_MAP = [
     ("POST", "/bots", "create_bot", "meeting"),
@@ -364,7 +408,7 @@ async def audit_middleware(request: Request, call_next):
         ip = request.client.host if request.client else None
         ua = request.headers.get("user-agent")
 
-        _asyncio.create_task(
+        _spawn_background(
             _write_audit(
                 user_id=user_id,
                 action=action,
@@ -374,7 +418,8 @@ async def audit_middleware(request: Request, call_next):
                 user_agent=ua,
                 status_code=response.status_code,
                 details=details,
-            )
+            ),
+            name=f"audit:{action}",
         )
     except Exception:
         logger.warning("Audit middleware error", exc_info=True)
@@ -1710,7 +1755,7 @@ async def resolve_browser_session(token: str) -> Optional[dict]:
     # Fire-and-forget touch to keep container alive
     container_name = session.get("container_name")
     if container_name:
-        asyncio.create_task(_fire_touch(container_name))
+        _spawn_background(_fire_touch(container_name), name=f"touch:{container_name}")
 
     # Resolve container IP if missing (K8s pods don't have DNS names)
     if not session.get("container_ip") and container_name:

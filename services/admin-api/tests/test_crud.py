@@ -30,7 +30,8 @@ def _route_paths_and_methods():
     return routes
 
 
-def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test"):
+def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test",
+                   role="free", status="approved"):
     """Create a mock User object."""
     user = MagicMock()
     user.id = user_id
@@ -39,6 +40,9 @@ def make_fake_user(user_id=1, data=None, email="test@example.com", name="Test"):
     user.image_url = None
     user.max_concurrent_bots = 1
     user.data = data
+    # UserResponse validates these as strings; a bare MagicMock attribute fails.
+    user.role = role
+    user.status = status
     user.created_at = "2025-01-01T00:00:00"
     user.meetings = []
     user.api_tokens = []
@@ -173,6 +177,63 @@ class TestUserEndpoints:
                 )
             assert resp.status_code in (200, 201), resp.text
             assert resp.json()["email"] == "new@example.com"
+        finally:
+            app.dependency_overrides.clear()
+
+    @pytest.mark.asyncio
+    async def test_create_user_without_max_concurrent_bots_persists_a_number(self):
+        """Omitting max_concurrent_bots must not store None.
+
+        model_dump() always emits the key, so `.get(key, default)` returns the
+        explicit None instead of the default. Passing None to the constructor
+        skips the column default and violates the NOT NULL constraint.
+        """
+        mock_db = make_mock_db(None)
+        first_result = MagicMock()
+        first_scalars = MagicMock()
+        first_scalars.first.return_value = None
+        first_result.scalars.return_value = first_scalars
+        mock_db.execute.return_value = first_result
+
+        def fake_refresh(obj):
+            obj.id = 43
+            obj.created_at = "2025-01-01T00:00:00"
+        mock_db.refresh = AsyncMock(side_effect=fake_refresh)
+
+        app.dependency_overrides[get_db] = lambda: mock_db
+        app.dependency_overrides[verify_admin_token] = noop_verify_admin
+
+        try:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post("/admin/users", json={"email": "nobots@example.com"})
+            assert resp.status_code in (200, 201), resp.text
+            created = mock_db.add.call_args[0][0]
+            assert created.max_concurrent_bots == 0, (
+                f"expected 0 for a non-admin user, got {created.max_concurrent_bots!r}"
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    @pytest.mark.asyncio
+    async def test_approving_user_grants_first_bot_slot(self):
+        """Approval bumps a user sitting at 0 concurrent bots up to 1."""
+        fake_user = make_fake_user(status="pending")
+        fake_user.max_concurrent_bots = 0
+        mock_db = make_mock_db(fake_user)
+
+        app.dependency_overrides[get_db] = lambda: mock_db
+        app.dependency_overrides[verify_admin_token] = noop_verify_admin
+
+        try:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.patch(
+                    "/admin/users/1/approval", json={"status": "approved"}
+                )
+            assert resp.status_code == 200, resp.text
+            assert fake_user.status == "approved"
+            assert fake_user.max_concurrent_bots == 1
         finally:
             app.dependency_overrides.clear()
 

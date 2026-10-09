@@ -366,11 +366,17 @@ async def create_user(user_in: UserCreate, response: Response, db: AsyncSession 
 
     user_data = user_in.model_dump()
     is_admin = user_data['email'].lower() in [e.lower() for e in ADMIN_EMAILS]
+    # model_dump() always emits the key, so .get()'s default never fires: an
+    # omitted max_concurrent_bots arrives as None, and passing None explicitly
+    # skips the column default and violates NOT NULL.
+    max_concurrent_bots = user_data.get('max_concurrent_bots')
+    if max_concurrent_bots is None:
+        max_concurrent_bots = 1 if is_admin else 0
     db_user = User(
         email=user_data['email'],
         name=user_data.get('name'),
         image_url=user_data.get('image_url'),
-        max_concurrent_bots=user_data.get('max_concurrent_bots', 1 if is_admin else 0),
+        max_concurrent_bots=max_concurrent_bots,
         role="admin" if is_admin else "free",
         status="approved" if is_admin else "pending",
     )
@@ -922,8 +928,8 @@ async def validate_token(request: Request, payload: dict, db: AsyncSession = Dep
         "scopes": scopes,
         "max_concurrent": user.max_concurrent_bots,
         "email": user.email,
-        "role": user.role or "free",
-        "status": user.status or "approved",
+        "role": user.role,
+        "status": user.status,
     }
 
     # Include webhook config if present (gateway injects as X-User-Webhook-* headers)

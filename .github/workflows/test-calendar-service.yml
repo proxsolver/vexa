@@ -1,0 +1,33 @@
+name: Test Calendar Service
+
+on:
+  push:
+    branches: [main, feature/*]
+    paths:
+      - 'services/calendar-service/**'
+      - 'libs/admin-models/**'
+      - '.github/workflows/test-calendar-service.yml'
+  pull_request:
+    paths:
+      - 'services/calendar-service/**'
+      - 'libs/admin-models/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install -e libs/admin-models/
+          pip install -e services/meeting-api/
+          pip install -r services/calendar-service/requirements.txt
+          pip install pytest pytest-asyncio
+      - name: Run tests
+        # `python -m pytest` from the service dir: calendar-service ships no
+        # setup.py, so `app` is only importable with the service dir on sys.path.
+        working-directory: services/calendar-service
+        run: python -m pytest tests/ -v

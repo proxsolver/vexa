@@ -44,6 +44,8 @@ docker run --rm -p 3000:3000 \
 
 > **Production:** Use immutable tags (e.g., `0.10.0-260405-0108`) instead of `:latest` for reproducible deployments.
 
+> **Reaching a remote Vexa host:** the compose stack publishes the API gateway on `127.0.0.1` by default, so `http://your-vexa-host:8056` is refused from another machine. Set `API_GATEWAY_HOST_BIND=0.0.0.0` in the Vexa host's `.env` to open it — and put it behind a firewall or reverse proxy when you do. Container-to-container URLs (see the Compose Example below) are unaffected.
+
 Then open `http://localhost:3000`. (The container listens on port 3000; the `npm run dev` server uses port 3001.)
 
 ## Local Development

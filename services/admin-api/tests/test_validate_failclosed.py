@@ -15,11 +15,13 @@ from httpx import AsyncClient, ASGITransport
 from admin_models.database import get_db
 
 
-def _make_user(user_id=5, email="test@example.com", max_concurrent_bots=3):
+def _make_user(user_id=5, email="test@example.com", max_concurrent_bots=3, role="free", status="approved"):
     user = MagicMock()
     user.id = user_id
     user.email = email
     user.max_concurrent_bots = max_concurrent_bots
+    user.role = role
+    user.status = status
     return user
 
 

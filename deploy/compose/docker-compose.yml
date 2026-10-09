@@ -208,7 +208,10 @@ services:
     image: vexaai/api-gateway:${IMAGE_TAG}
     mem_limit: 1g
     ports:
-      - "${API_GATEWAY_HOST_PORT:-8056}:8000"
+      # Defaults to 127.0.0.1 so a stock `docker compose up` does not publish
+      # the API to the network. Set API_GATEWAY_HOST_BIND=0.0.0.0 to reach it
+      # from another machine (see services/dashboard/README.md).
+      - "${API_GATEWAY_HOST_BIND:-127.0.0.1}:${API_GATEWAY_HOST_PORT:-8056}:8000"
     environment:
       - ADMIN_API_URL=http://admin-api:8001
       - MEETING_API_URL=http://meeting-api:8080
@@ -372,7 +375,9 @@ services:
     image: vexaai/dashboard:${IMAGE_TAG}
     mem_limit: 1g
     ports:
-      - "${DASHBOARD_HOST_PORT:-3001}:3000"
+      # Same default-closed rule as api-gateway above: set
+      # DASHBOARD_HOST_BIND=0.0.0.0 to open the UI to the network.
+      - "${DASHBOARD_HOST_BIND:-127.0.0.1}:${DASHBOARD_HOST_PORT:-3001}:3000"
     environment:
       - VEXA_API_URL=http://api-gateway:8000
       - VEXA_PUBLIC_API_URL=${VEXA_PUBLIC_API_URL:-}

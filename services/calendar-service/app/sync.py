@@ -173,9 +173,12 @@ async def _retry_failed_events(db: AsyncSession) -> int:
     failed_events = result.scalars().all()
 
     for event in failed_events:
-        max_retries = event.max_retries or DEFAULT_MAX_RETRIES
-        if event.retry_count >= max_retries:
-            logger.info(f"Event {event.id} exhausted retries ({event.retry_count}/{max_retries})")
+        # `is not None`, not `or`: max_retries=0 means "never retry this event",
+        # which `or` would silently turn back into the default.
+        max_retries = event.max_retries if event.max_retries is not None else DEFAULT_MAX_RETRIES
+        retry_count = event.retry_count
+        if retry_count >= max_retries:
+            logger.info(f"Event {event.id} exhausted retries ({retry_count}/{max_retries})")
             continue
 
         # Only retry if the meeting hasn't ended yet
@@ -184,16 +187,16 @@ async def _retry_failed_events(db: AsyncSession) -> int:
             continue
 
         # Exponential backoff: 30s, 60s, 120s, ...
-        backoff = RETRY_BACKOFF_BASE_SECONDS * (2 ** event.retry_count)
+        backoff = RETRY_BACKOFF_BASE_SECONDS * (2 ** retry_count)
         if event.last_retry_at:
             elapsed = (now - event.last_retry_at.replace(tzinfo=timezone.utc)).total_seconds()
             if elapsed < backoff:
                 continue
 
         logger.info(
-            f"Retrying event {event.id} (attempt {event.retry_count + 1}/{max_retries}): {event.title}"
+            f"Retrying event {event.id} (attempt {retry_count + 1}/{max_retries}): {event.title}"
         )
-        event.retry_count = (event.retry_count or 0) + 1
+        event.retry_count = retry_count + 1
         event.last_retry_at = now
         event.status = "pending"
         event.meeting_id = None
