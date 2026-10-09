@@ -71,9 +71,13 @@ sleep 1
 resp=$(rig_callback "$incoming_uid" status_change status=active container_id="incoming-ctr")
 wait "$sub_pid" 2>/dev/null || true
 
-echo "$resp" | grep -q "rotation_handoff_scheduled" || {
+# The status itself must stay inside the bot's accept-list, so the handoff is
+# reported in a side field — see tests/test_callback_status_contract.py.
+echo "$resp" | grep -q '"rotation_handoff": *true' || {
     echo "    ✗ phase 2 did not run: $resp" >&2; exit 1; }
-echo "    ✓ phase 2 ran on the already-ACTIVE path"
+echo "$resp" | grep -qE '"status": *"(processed|ok|container_updated|ignored)"' || {
+    echo "    ✗ status is one the bot rejects: $resp" >&2; exit 1; }
+echo "    ✓ phase 2 ran on the already-ACTIVE path, status bot-accepted"
 
 grep -q "bot_rotation" "$leave_log" || {
     echo "    ✗ no leave command on bot_commands:meeting:$meeting_id" >&2

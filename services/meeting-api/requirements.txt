@@ -3,7 +3,10 @@ uvicorn[standard]>=0.29
 httpx>=0.28.1
 h11>=0.16.0                       # CVE-2025-43859
 redis>=5.0
-sqlalchemy[asyncio]>=2.0
+# <2.1: SQLAlchemy 2.1 flips the default postgresql:// driver from psycopg2
+# to psycopg (v3), which this image doesn't ship — meeting-api crash-looped
+# on the first rebuild after 2.1.4 released (2026-09-18).
+sqlalchemy[asyncio]>=2.0,<2.1
 asyncpg>=0.29
 pydantic[email]>=2.0
 alembic>=1.13

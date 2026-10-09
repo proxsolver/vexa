@@ -1005,7 +1005,8 @@ async def bot_status_change_callback(
                 meeting.data = meeting_data
                 attributes.flag_modified(meeting, "data")
                 await db.commit()
-                return {"status": "rotation_old_bot_failed", "meeting_id": meeting.id}
+                # "processed" + a side field: the bot rejects unknown statuses.
+                return {"status": "processed", "rotation": "old_bot_failed", "meeting_id": meeting.id}
 
             # The new (replacement) bot failed to join. Clear handoff state
             # and let the outgoing bot keep running. Increment failure count.
@@ -1023,7 +1024,7 @@ async def bot_status_change_callback(
                 f"[rotation] New bot FAILED for meeting {meeting.id} during handoff "
                 f"(failures={consecutive}). Outgoing bot continues. Not failing meeting."
             )
-            return {"status": "rotation_handoff_failed", "meeting_id": meeting.id}
+            return {"status": "processed", "rotation": "handoff_failed", "meeting_id": meeting.id}
 
         # v0.10.5 Pack X finding (lite m28, 2026-04-27): bot's
         # status_change new_status=failed didn't pass completion_reason
@@ -1096,8 +1097,13 @@ async def bot_status_change_callback(
             # from this branch too or the outgoing bot is never retired and both
             # bots stay in the meeting recording in parallel.
             handed_off = await _rotation_phase2_handoff(meeting, redis_client, background_tasks)
+            # Always "container_updated": the bot only accepts
+            # {processed, ok, container_updated, ignored} and treats anything
+            # else as a rejection worth 3 retries then death. Report the
+            # handoff in a side field instead of inventing a status.
             return {
-                "status": "rotation_handoff_scheduled" if handed_off else "container_updated",
+                "status": "container_updated",
+                "rotation_handoff": handed_off,
                 "meeting_id": meeting.id,
                 "meeting_status": meeting.status,
             }
@@ -1140,7 +1146,12 @@ async def bot_status_change_callback(
         # while the outgoing bot keeps the meeting ACTIVE. Rejecting this makes
         # the replacement abort after 3 retries and its exit marks a live meeting
         # FAILED (meeting 53, 2026-09-11). Acknowledge without downgrading.
-        return {"status": "acknowledged", "meeting_id": meeting.id, "meeting_status": meeting.status}
+        #
+        # MUST be a status the bot's unified-callback treats as success
+        # ({processed, ok, container_updated, ignored}). A novel string reads as
+        # a rejection and costs the meeting — "acknowledged" did exactly that to
+        # meeting 83 on 2026-09-18, reproducing the bug this branch prevents.
+        return {"status": "processed", "meeting_id": meeting.id, "meeting_status": meeting.status}
 
     else:
         # joining, awaiting_admission, etc.
